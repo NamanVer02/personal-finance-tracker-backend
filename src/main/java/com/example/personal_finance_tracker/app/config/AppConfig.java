@@ -1,4 +1,4 @@
-package com.example.personal_finance_tracker.app;
+package com.example.personal_finance_tracker.app.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

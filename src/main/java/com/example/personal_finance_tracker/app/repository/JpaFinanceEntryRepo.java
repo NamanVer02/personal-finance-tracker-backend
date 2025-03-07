@@ -31,7 +31,7 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     @Override
     public FinanceEntry update (Long id, FinanceEntry financeEntry) throws Exception {
         JpaFinanceEntry jpaFinanceEntry = jpaRepo.findById(id)
-                .orElseThrow(() -> new Exception("No entry found with the id" + id));  // should be in service call get by id in service and throw error there itself. no errors in repo
+                .orElseThrow(() -> new Exception("No entry found with the id" + id));
         jpaFinanceEntry.setLabel(financeEntry.getLabel());
         jpaFinanceEntry.setType(financeEntry.getType());
         jpaFinanceEntry.setAmount(financeEntry.getAmount());
