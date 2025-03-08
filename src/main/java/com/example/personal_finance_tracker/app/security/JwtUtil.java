@@ -25,12 +25,15 @@ public class JwtUtil {
     public String generateJwtToken(Authentication authentication) {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
-        return Jwts.builder()
+        String jwt = Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
+
+        logger.info("Generated JWT for user: {}", userPrincipal.getUsername());
+        return jwt;
     }
 
     private Key key() {
@@ -44,7 +47,7 @@ public class JwtUtil {
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
+            Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
             return true;
         } catch (MalformedJwtException e) {
             logger.error("Invalid JWT token: {}", e.getMessage());
@@ -54,6 +57,9 @@ public class JwtUtil {
             logger.error("JWT token is unsupported: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
             logger.error("JWT claims string is empty: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error during JWT validation: {}", e.getMessage());
+            e.printStackTrace(); // Full stack trace
         }
 
         return false;

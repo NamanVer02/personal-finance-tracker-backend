@@ -18,15 +18,11 @@ public class DatabaseInitConfig implements CommandLineRunner {
         // Initialize roles if they don't exist
         if (roleRepository.count() == 0) {
             Role userRole = new Role();
-            userRole.setName(ERole.ROLE_USER);
+            userRole.setName(ERole.USER);
             roleRepository.save(userRole);
 
-            Role modRole = new Role();
-            modRole.setName(ERole.ROLE_MODERATOR);
-            roleRepository.save(modRole);
-
             Role adminRole = new Role();
-            adminRole.setName(ERole.ROLE_ADMIN);
+            adminRole.setName(ERole.ADMIN);
             roleRepository.save(adminRole);
 
             System.out.println("Roles initialized in database");

@@ -12,6 +12,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
+import org.springframework.security.core.authority.mapping.SimpleAuthorityMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -27,6 +29,15 @@ public class SecurityConfig {
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler;
 
+
+    // Add a GrantedAuthoritiesMapper to handle role prefixes
+    @Bean
+    public GrantedAuthoritiesMapper authoritiesMapper() {
+        SimpleAuthorityMapper mapper = new SimpleAuthorityMapper();
+        mapper.setPrefix(""); // Remove the default ROLE_ prefix
+        return mapper;
+    }
+
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
         return new AuthTokenFilter();
@@ -38,6 +49,7 @@ public class SecurityConfig {
 
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
+        authProvider.setAuthoritiesMapper(authoritiesMapper());
 
         return authProvider;
     }
