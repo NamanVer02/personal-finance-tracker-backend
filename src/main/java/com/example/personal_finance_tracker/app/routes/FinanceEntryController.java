@@ -1,8 +1,13 @@
 package com.example.personal_finance_tracker.app.routes;
 
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
+import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import com.example.personal_finance_tracker.app.services.FinanceEntryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,27 +20,79 @@ public class FinanceEntryController {
     private final FinanceEntryService financeEntryService;
 
     @GetMapping("/get")
-    public List<FinanceEntry> getAll () {
-        return financeEntryService.findAll();
+    public List<FinanceEntry> getAll() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        
+        // Check if user has ADMIN role
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        
+        if (isAdmin) {
+            // Admin can see all entries
+            return financeEntryService.findAll();
+        } else {
+            // Regular users can only see their own entries
+            return financeEntryService.findByUserId(userDetails.getId());
+        }
     }
 
     @GetMapping("/get/{type}")
-    public List<FinanceEntry> getByType (@PathVariable String type) {
-        return financeEntryService.findByType(type);
+    public List<FinanceEntry> getByType(@PathVariable String type) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        
+        // Check if user has ADMIN role
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        
+        if (isAdmin) {
+            // Admin can see all entries of a specific type
+            return financeEntryService.findByType(type);
+        } else {
+            // Regular users can only see their own entries of a specific type
+            return financeEntryService.findByTypeAndUserId(type, userDetails.getId());
+        }
     }
 
     @PostMapping("/post")
-    public FinanceEntry create (@RequestBody FinanceEntry financeEntry) {
+    public FinanceEntry create(@RequestBody FinanceEntry financeEntry) {
+        // Set the current user as the owner of the finance entry
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        financeEntry.setUserId(userDetails.getId());
+        
         return financeEntryService.create(financeEntry);
     }
 
     @PutMapping("/put/{id}")
     public FinanceEntry update(@PathVariable Long id, @RequestBody FinanceEntry financeEntry) throws Exception {
-        return financeEntryService.update(id, financeEntry);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        
+        // Get the existing entry to check ownership
+        List<FinanceEntry> userEntries = financeEntryService.findByUserId(userDetails.getId());
+        boolean isOwner = userEntries.stream().anyMatch(entry -> entry.getId().equals(id));
+        
+        // Only allow update if user is admin or the owner of the entry
+        if (isAdmin || isOwner) {
+            // Preserve the original user ID - don't allow changing ownership
+            financeEntry.setUserId(isAdmin && !isOwner ? 
+                    financeEntryService.findAll().stream()
+                            .filter(e -> e.getId().equals(id))
+                            .findFirst()
+                            .map(FinanceEntry::getUserId)
+                            .orElse(null) : 
+                    userDetails.getId());
+            
+            return financeEntryService.update(id, financeEntry);
+        } else {
+            throw new Exception("You don't have permission to update this entry");
+        }
     }
 
     @DeleteMapping("delete/{id}")
-    public void delete (@PathVariable Long id) {
+    @PreAuthorize("hasAuthority('ADMIN') or @financeEntryPermissionEvaluator.isOwner(authentication, #id)")
+    public void delete(@PathVariable Long id) {
         financeEntryService.deleteById(id);
     }
 }

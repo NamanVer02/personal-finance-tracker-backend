@@ -14,4 +14,6 @@ public class FinanceEntry {
     private Double amount;
     private String category;
     private Date date;
+    
+    private Long userId;
 }

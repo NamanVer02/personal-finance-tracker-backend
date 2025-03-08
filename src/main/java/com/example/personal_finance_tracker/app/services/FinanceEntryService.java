@@ -31,4 +31,12 @@ public class FinanceEntryService {
     public List<FinanceEntry> findByType(String type) {
         return financeEntryRepo.findByType(type);
     }
+
+    public List<FinanceEntry> findByUserId(Long userId) {
+        return financeEntryRepo.findByUserId(userId);
+    }
+
+    public List<FinanceEntry> findByTypeAndUserId(String type, Long userId) {
+        return financeEntryRepo.findByTypeAndUserId(type, userId);
+    }
 }

@@ -18,4 +18,8 @@ public class JpaFinanceEntry {
     private Double amount;
     private String category;
     private Date date;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }
