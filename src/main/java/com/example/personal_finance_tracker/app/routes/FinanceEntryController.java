@@ -4,6 +4,8 @@ import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import com.example.personal_finance_tracker.app.services.FinanceEntryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -11,6 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @CrossOrigin(origins = "http://localhost:3000")  // set global CORS policy
 @RestController
@@ -94,5 +97,40 @@ public class FinanceEntryController {
     @PreAuthorize("hasAuthority('ADMIN') or @financeEntryPermissionEvaluator.isOwner(authentication, #id)")
     public void delete(@PathVariable Long id) {
         financeEntryService.deleteById(id);
+    }
+
+
+    @GetMapping("/get/summary/expense/{userId}")
+    public ResponseEntity<Map<String, Double>> getCategoryWiseSpendingForCurrentMonth(@PathVariable Long userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        if (!userDetails.getId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Map<String, Double> categoryWiseSpending = financeEntryService.getCategoryWiseSpendingForCurrentMonth(userId);
+        return ResponseEntity.ok(categoryWiseSpending);
+    }
+
+    @GetMapping("/get/summary/income/{userId}")
+    public ResponseEntity<Map<String, Double>> getCategoryWiseIncomeForCurrentMonth(@PathVariable Long userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        if (!userDetails.getId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Map<String, Double> categoryWiseIncome = financeEntryService.getCategoryWiseIncomeForCurrentMonth(userId);
+        return ResponseEntity.ok(categoryWiseIncome);
     }
 }

@@ -1,14 +1,13 @@
 package com.example.personal_finance_tracker.app.repository;
 
 import com.example.personal_finance_tracker.app.interfaces.FinanceEntryRepoInterface;
+import com.example.personal_finance_tracker.app.interfaces.JpaFinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.models.JpaFinanceEntry;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.services.FinanceEntryMapper;
-import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
-import com.example.personal_finance_tracker.app.interfaces.JpaFinanceEntryRepoInterface;
-import com.example.personal_finance_tracker.app.repository.UserRepo;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
@@ -70,22 +69,30 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     @Override
     public List<FinanceEntry> findByUserId(Long userId) {
         Optional<User> userOpt = userRepo.findById(userId);
-        if (userOpt.isPresent()) {
-            return jpaRepo.findByUser(userOpt.get()).stream()
-                    .map(financeMapper::toFinanceEntry)
-                    .toList();
-        }
-        return List.of(); // Return empty list if user not found
+        // Return empty list if user not found
+        return userOpt.map(user -> jpaRepo.findByUser(user).stream()
+                .map(financeMapper::toFinanceEntry)
+                .toList()).orElseGet(List::of);
     }
     
     @Override
     public List<FinanceEntry> findByTypeAndUserId(String type, Long userId) {
         Optional<User> userOpt = userRepo.findById(userId);
-        if (userOpt.isPresent()) {
-            return jpaRepo.findByTypeAndUser(type, userOpt.get()).stream()
-                    .map(financeMapper::toFinanceEntry)
-                    .toList();
-        }
-        return List.of(); // Return empty list if user not found
+        // Return empty list if user not found
+        return userOpt.map(user -> jpaRepo.findByTypeAndUser(type, user).stream()
+                .map(financeMapper::toFinanceEntry)
+                .toList()).orElseGet(List::of);
     }
+
+    @Override
+    public List<Object[]> findCategoryWiseSpendingForCurrentMonth(Long userId) {
+        return jpaRepo.findCategoryWiseSpendingForCurrentMonth(userId);
+    }
+
+    @Override
+    public List<Object[]> findCategoryWiseIncomeForCurrentMonth(Long userId) {
+        return jpaRepo.findCategoryWiseIncomeForCurrentMonth(userId);
+    }
+
+
 }
