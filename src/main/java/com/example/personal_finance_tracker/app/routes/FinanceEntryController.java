@@ -6,7 +6,6 @@ import com.example.personal_finance_tracker.app.services.FinanceEntryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -94,8 +93,15 @@ public class FinanceEntryController {
     }
 
     @DeleteMapping("delete/{id}")
-    @PreAuthorize("hasAuthority('ADMIN') or @financeEntryPermissionEvaluator.isOwner(authentication, #id)")
     public void delete(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+
+        List<FinanceEntry> userEntries = financeEntryService.findByUserId(userDetails.getId());
+        boolean isOwner = userEntries.stream().anyMatch(entry -> entry.getId().equals(id));
+
+        if(isAdmin || isOwner) { financeEntryService.deleteById(id); }
         financeEntryService.deleteById(id);
     }
 

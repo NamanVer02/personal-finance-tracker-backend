@@ -14,12 +14,12 @@ public interface JpaFinanceEntryRepoInterface extends JpaRepository<JpaFinanceEn
     List<JpaFinanceEntry> findByTypeAndUser(String type, User user);
 
     @Query("SELECT f.category, SUM(f.amount) FROM JpaFinanceEntry f " +
-            "WHERE f.user.id = :userId AND f.type = 'expense' AND YEAR(f.date) = YEAR(CURRENT_DATE) AND MONTH(f.date) = MONTH(CURRENT_DATE) " +
+            "WHERE f.user.id = :userId AND f.type = 'Expense' AND YEAR(f.date) = YEAR(CURRENT_DATE) AND MONTH(f.date) = MONTH(CURRENT_DATE) " +
             "GROUP BY f.category")
     List<Object[]> findCategoryWiseSpendingForCurrentMonth(@Param("userId") Long userId);
 
     @Query("SELECT f.category, SUM(f.amount) FROM JpaFinanceEntry f " +
-            "WHERE f.user.id = :userId AND f.type = 'income' AND YEAR(f.date) = YEAR(CURRENT_DATE) AND MONTH(f.date) = MONTH(CURRENT_DATE) " +
+            "WHERE f.user.id = :userId AND f.type = 'Income' AND YEAR(f.date) = YEAR(CURRENT_DATE) AND MONTH(f.date) = MONTH(CURRENT_DATE) " +
             "GROUP BY f.category")
     List<Object[]> findCategoryWiseIncomeForCurrentMonth(Long userId);
 }
