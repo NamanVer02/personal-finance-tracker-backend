@@ -29,7 +29,7 @@ public class UserService implements UserInterface {
     }
 
     @Override
-    public User save(User user) {
-        return userRepo.save(user);
+    public void save(User user) {
+        userRepo.save(user);
     }
 }
