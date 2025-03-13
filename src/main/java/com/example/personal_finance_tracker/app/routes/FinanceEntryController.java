@@ -1,11 +1,14 @@
 package com.example.personal_finance_tracker.app.routes;
 
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
+import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import com.example.personal_finance_tracker.app.services.FinanceEntryService;
+import com.example.personal_finance_tracker.app.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,12 +17,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@CrossOrigin(origins = "http://localhost:3000")  // set global CORS policy
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class FinanceEntryController {
     private final FinanceEntryService financeEntryService;
+    private final UserService userService;
 
     @GetMapping("/get")
     public List<FinanceEntry> getAll() {
@@ -28,7 +31,7 @@ public class FinanceEntryController {
         
         // Check if user has ADMIN role
         boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
-        
+
         if (isAdmin) {
             // Admin can see all entries
             return financeEntryService.findAll();
@@ -138,5 +141,17 @@ public class FinanceEntryController {
 
         Map<String, Double> categoryWiseIncome = financeEntryService.getCategoryWiseIncomeForCurrentMonth(userId);
         return ResponseEntity.ok(categoryWiseIncome);
+    }
+
+    @GetMapping("/get/admin/transactions")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public List<FinanceEntry> getAllFinanceEntries() {
+        return financeEntryService.findAll();
+    }
+
+    @GetMapping("/get/admin/users")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
     }
 }
