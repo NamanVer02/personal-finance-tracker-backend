@@ -10,5 +10,7 @@ public interface UserInterface {
     Boolean existsByUsername(String username);
     Boolean existsByEmail(String email);
     List<User> getAllUsers();
+    String getUsernameByUserId(Long userId);
     void save(User user);
+
 }
