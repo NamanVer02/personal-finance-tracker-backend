@@ -94,5 +94,8 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
         return jpaRepo.findCategoryWiseIncomeForCurrentMonth(userId);
     }
 
-
+    @Override
+    public JpaFinanceEntry save(JpaFinanceEntry jpaEntry) {
+        return jpaRepo.save(jpaEntry);
+    }
 }

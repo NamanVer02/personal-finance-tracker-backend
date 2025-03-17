@@ -44,4 +44,10 @@ public class UserService implements UserInterface {
         User user = userRepo.findById(userId).orElse(null);
         return (user != null) ? user.getUsername() : "Unknown";
     }
+
+    @Override
+    public Long getUserIdByUsername(String username) {
+        User user = userRepo.findByUsername(username).orElse(null);
+        return user != null ? user.getId() : null;
+    }
 }

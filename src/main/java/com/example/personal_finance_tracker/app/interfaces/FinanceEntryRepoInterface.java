@@ -1,6 +1,7 @@
 package com.example.personal_finance_tracker.app.interfaces;
 
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
+import com.example.personal_finance_tracker.app.models.JpaFinanceEntry;
 
 import java.util.List;
 
@@ -13,6 +14,6 @@ public interface FinanceEntryRepoInterface {
     List<FinanceEntry> findByUserId(Long userId);
     List<FinanceEntry> findByTypeAndUserId(String type, Long userId);
     List<Object[]> findCategoryWiseSpendingForCurrentMonth(Long userId);
-
     List<Object[]> findCategoryWiseIncomeForCurrentMonth(Long userId);
+    JpaFinanceEntry save(JpaFinanceEntry jpaEntry);
 }
