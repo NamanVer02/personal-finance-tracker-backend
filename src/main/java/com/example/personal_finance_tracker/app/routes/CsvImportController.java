@@ -1,7 +1,7 @@
 package com.example.personal_finance_tracker.app.routes;
 
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
-import com.example.personal_finance_tracker.app.models.User;
+import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import com.example.personal_finance_tracker.app.services.CsvImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api")
@@ -27,14 +28,14 @@ public class CsvImportController {
     public ResponseEntity<?> importCsv(@RequestParam("file") MultipartFile file, Authentication authentication) {
         try {
             // Get the current user
-            User user = (User) authentication.getPrincipal();
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-            if (file.isEmpty() || !file.getOriginalFilename().endsWith(".csv")) {
+            if (file.isEmpty() || !Objects.requireNonNull(file.getOriginalFilename()).endsWith(".csv")) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Please upload a valid CSV file"));
             }
 
             // Process the CSV file
-            List<FinanceEntry> importedEntries = csvImportService.importCsvEntries(file, user.getId());
+            List<FinanceEntry> importedEntries = csvImportService.importCsvEntries(file, userDetails.getId());
 
             return ResponseEntity.ok(Map.of(
                     "message", "Transactions imported successfully",

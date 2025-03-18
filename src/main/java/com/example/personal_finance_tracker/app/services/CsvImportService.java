@@ -41,7 +41,7 @@ public class CsvImportService {
 
         // Get the user
         Optional<User> userOptional = userRepo.findById(userId);
-        if (!userOptional.isPresent()) {
+        if (userOptional.isEmpty()) {
             throw new IllegalArgumentException("User not found");
         }
         User user = userOptional.get();
@@ -52,14 +52,14 @@ public class CsvImportService {
             for (CSVRecord record : csvParser) {
                 // Parse the CSV record
                 FinanceEntry entry = new FinanceEntry();
-                entry.setLabel(record.get("label"));
-                entry.setType(record.get("type"));
-                entry.setAmount(Double.parseDouble(record.get("amount")));
-                entry.setCategory(record.get("category"));
+                entry.setLabel(record.get("Label"));
+                entry.setType(record.get("Type"));
+                entry.setAmount(Double.parseDouble(record.get("Amount")));
+                entry.setCategory(record.get("Category"));
 
                 // Parse the date
                 try {
-                    Date date = DATE_FORMAT.parse(record.get("date"));
+                    Date date = DATE_FORMAT.parse(record.get("Date"));
                     entry.setDate(date);
                 } catch (ParseException e) {
                     // Default to current date if parsing fails
