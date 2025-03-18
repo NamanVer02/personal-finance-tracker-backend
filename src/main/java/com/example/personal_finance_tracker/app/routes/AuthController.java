@@ -1,9 +1,6 @@
 package com.example.personal_finance_tracker.app.routes;
 
-import com.example.personal_finance_tracker.app.models.dto.JwtResponse;
-import com.example.personal_finance_tracker.app.models.dto.LoginRequest;
-import com.example.personal_finance_tracker.app.models.dto.MessageResponse;
-import com.example.personal_finance_tracker.app.models.dto.SignUpRequest;
+import com.example.personal_finance_tracker.app.models.dto.*;
 import com.example.personal_finance_tracker.app.services.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +21,19 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signupRequest) {
-        MessageResponse messageResponse = authService.registerUser(signupRequest);
+        SignupResponse messageResponse = authService.registerUser(signupRequest);
         return ResponseEntity.ok(messageResponse);
+    }
+
+    @GetMapping("/2fa/setup")
+    public ResponseEntity<?> setup2FA(@RequestParam String username) {
+        TwoFactorSetupResponse setupResponse = authService.setup2FA(username);
+        return ResponseEntity.ok(setupResponse);
+    }
+
+    @PostMapping("/2fa/verify")
+    public ResponseEntity<?> verify2FA(@RequestBody TwoFactorVerifyRequest verifyRequest) {
+        JwtResponse jwtResponse = authService.verify2FA(verifyRequest);
+        return ResponseEntity.ok(jwtResponse);
     }
 }
