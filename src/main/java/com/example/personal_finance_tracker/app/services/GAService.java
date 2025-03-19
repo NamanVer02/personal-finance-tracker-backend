@@ -22,7 +22,7 @@ import java.util.Map;
 
 @Service
 public class GAService {
-    private static final String ISSUER = "Sample Company";
+    private static final String ISSUER = "Personal Finance";
 
     // Generate a new TOTP key
     public String generateKey() {
