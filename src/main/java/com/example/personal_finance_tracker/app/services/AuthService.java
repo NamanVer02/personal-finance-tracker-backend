@@ -1,23 +1,28 @@
 package com.example.personal_finance_tracker.app.services;
 
 import com.example.personal_finance_tracker.app.interfaces.AuthServiceInterface;
+import com.example.personal_finance_tracker.app.models.BlacklistedToken;
 import com.example.personal_finance_tracker.app.models.ERole;
 import com.example.personal_finance_tracker.app.models.Role;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.models.dto.*;
+import com.example.personal_finance_tracker.app.repository.BlacklistedTokenRepository;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.security.JwtUtil;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -46,6 +51,12 @@ public class AuthService implements AuthServiceInterface {
     @Autowired
     private GAService gaService;
 
+    @Autowired
+    private BlacklistedTokenRepository blacklistedTokenRepository;
+
+    @Autowired
+    private BlackListedTokenService blacklistedTokenService;
+
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
         // First authenticate with username and password
@@ -71,14 +82,16 @@ public class AuthService implements AuthServiceInterface {
 
                     // 2FA successful, set authentication and generate JWT
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    String jwt = jwtUtils.generateJwtToken(authentication);
+                    String accessToken = jwtUtils.generateJwtToken(authentication);
+                    String refreshToken = jwtUtils.generateRefreshToken(authentication);
 
                     List<String> roles = userDetails.getAuthorities().stream()
                             .map(item -> item.getAuthority())
                             .collect(Collectors.toList());
 
                     return new JwtResponse(
-                            jwt,
+                            accessToken,
+                            refreshToken,
                             userDetails.getId(),
                             userDetails.getUsername(),
                             userDetails.getEmail(),
@@ -87,6 +100,7 @@ public class AuthService implements AuthServiceInterface {
                 } else {
                     // 2FA code not provided, return response indicating 2FA is required
                     return new JwtResponse(
+                            null,
                             null,
                             userDetails.getId(),
                             userDetails.getUsername(),
@@ -97,14 +111,16 @@ public class AuthService implements AuthServiceInterface {
             } else {
                 // No 2FA required, process normally
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                String jwt = jwtUtils.generateJwtToken(authentication);
+                String accessToken = jwtUtils.generateJwtToken(authentication);
+                String refreshToken = jwtUtils.generateJwtToken(authentication);
 
                 List<String> roles = userDetails.getAuthorities().stream()
-                        .map(item -> item.getAuthority())
+                        .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toList());
 
                 return new JwtResponse(
-                        jwt,
+                        accessToken,
+                        refreshToken,
                         userDetails.getId(),
                         userDetails.getUsername(),
                         userDetails.getEmail(),
@@ -217,18 +233,60 @@ public class AuthService implements AuthServiceInterface {
                 user.getUsername(), null, userService.getUserAuthorities(user));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication);
+        String accessToken = jwtUtils.generateJwtToken(authentication);
+        String refreshToken = jwtUtils.generateRefreshToken(authentication);
 
         List<String> roles = user.getRoles().stream()
                 .map(role -> role.getName().name())
                 .collect(Collectors.toList());
 
         return new JwtResponse(
-                jwt,
+                accessToken,
+                refreshToken,
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
                 roles,
                 false);
+    }
+
+    public TokenRefreshResponse refreshToken(String refreshToken) {
+        // Validate refresh token
+        if (!jwtUtils.validateJwtToken(refreshToken) || isTokenBlacklisted(refreshToken)) {
+            throw new RuntimeException("Invalid refresh token");
+        }
+
+        String username = jwtUtils.getUserNameFromJwtToken(refreshToken);
+        // Generate new access token
+        String newAccessToken = jwtUtils.generateJwtToken(username);
+        // Generate new refresh token
+        String newRefreshToken = jwtUtils.generateRefreshToken(username);
+
+        // Blacklist the old refresh token
+        blacklistToken(refreshToken);
+
+        return new TokenRefreshResponse(newAccessToken, newRefreshToken, "Bearer");
+    }
+
+    public void logout(String token) {
+        Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
+        blacklistedTokenService.blacklistToken(token, expiryDate);
+    }
+
+    private void blacklistToken(String token) {
+        Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
+        BlacklistedToken blacklistedToken = new BlacklistedToken();
+        blacklistedToken.setToken(token);
+        blacklistedToken.setExpiryDate(expiryDate);
+        blacklistedTokenRepository.save(blacklistedToken);
+    }
+
+    public boolean isTokenBlacklisted(String token) {
+        return blacklistedTokenRepository.existsByToken(token);
+    }
+
+    @Scheduled(cron = "0 0 0 * * ?")
+    public void cleanupExpiredTokens() {
+        blacklistedTokenRepository.deleteByExpiryDate(new Date());
     }
 }

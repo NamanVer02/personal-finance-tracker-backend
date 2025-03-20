@@ -10,20 +10,23 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class JwtResponse {
-    private String token;
+    private String accessToken;
+    private String refreshToken;
+    private String tokenType = "Bearer";
     private Long id;
     private String username;
     private String email;
     private List<String> roles;
-    private boolean twoFactorRequired;
+    private boolean twoFactorRequired = false;
 
     // Constructor keeping backward compatibility
-    public JwtResponse(String token, Long id, String username, String email, List<String> roles) {
-        this.token = token;
+    public JwtResponse(String accessToken, String refreshToken, Long id, String username, String email, List<String> roles, boolean twoFactorRequired) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
         this.id = id;
         this.username = username;
         this.email = email;
         this.roles = roles;
-        this.twoFactorRequired = false;
+        this.twoFactorRequired = twoFactorRequired;
     }
 }

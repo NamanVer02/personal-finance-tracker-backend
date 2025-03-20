@@ -36,4 +36,16 @@ public class AuthController {
         JwtResponse jwtResponse = authService.verify2FA(verifyRequest);
         return ResponseEntity.ok(jwtResponse);
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logoutUser(@RequestHeader("Authorization") String token) {
+        authService.logout(token.substring(7));
+        return ResponseEntity.ok(new MessageResponse("Successfully logged out"));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken (@Valid @RequestBody TokenRefreshRequest request) {
+        TokenRefreshResponse response = authService.refreshToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
+    }
 }
