@@ -13,7 +13,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
-    private final PasswordResetService passwordResetService;
     private final GAService gaService;
     private final PasswordEncoder passwordEncoder;
     private final UserRepo userRepo;
