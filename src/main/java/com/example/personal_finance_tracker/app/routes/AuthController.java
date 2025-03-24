@@ -25,7 +25,7 @@ public class AuthController {
         return ResponseEntity.ok(messageResponse);
     }
 
-    @GetMapping("/2fa/setup")
+    @PostMapping("/2fa/setup")
     public ResponseEntity<?> setup2FA(@RequestParam String username) {
         TwoFactorSetupResponse setupResponse = authService.setup2FA(username);
         return ResponseEntity.ok(setupResponse);

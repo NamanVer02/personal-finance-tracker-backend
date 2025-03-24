@@ -10,10 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
@@ -33,7 +30,7 @@ public class DataDownloadController {
     private static final SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
 
     // Existing CSV download endpoints
-    @GetMapping("/download/{userId}/csv")
+    @PostMapping("/download/{userId}/csv")
     public ResponseEntity<byte[]> downloadCsv(@PathVariable Long userId) {
         List<FinanceEntry> transactions = financeEntryService.findByUserId(userId);
 
@@ -52,7 +49,7 @@ public class DataDownloadController {
                 .body(csvBytes);
     }
 
-    @GetMapping("/download/admin/csv")
+    @PostMapping("/download/admin/csv")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> adminDownloadCsv() {
         List<FinanceEntry> transactions = financeEntryService.findAll();
@@ -97,7 +94,7 @@ public class DataDownloadController {
     }
 
     // New PDF download endpoints
-    @GetMapping("/download/{userId}/pdf")
+    @PostMapping("/download/{userId}/pdf")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable Long userId) {
         List<FinanceEntry> transactions = financeEntryService.findByUserId(userId);
         byte[] pdfBytes = generatePdfBytes(transactions);
@@ -111,7 +108,7 @@ public class DataDownloadController {
                 .body(pdfBytes);
     }
 
-    @GetMapping("/download/admin/pdf")
+    @PostMapping("/download/admin/pdf")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> adminDownloadPdf() {
         List<FinanceEntry> transactions = financeEntryService.findAll();

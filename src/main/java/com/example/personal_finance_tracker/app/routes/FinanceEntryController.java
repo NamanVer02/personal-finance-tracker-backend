@@ -24,7 +24,7 @@ public class FinanceEntryController {
     private final FinanceEntryService financeEntryService;
     private final UserService userService;
 
-    @GetMapping("/get")
+    @PostMapping("/get")
     public List<FinanceEntry> getAll() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
@@ -41,7 +41,7 @@ public class FinanceEntryController {
         }
     }
 
-    @GetMapping("/get/{type}")
+    @PostMapping("/get/{type}")
     public List<FinanceEntry> getByType(@PathVariable String type) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
@@ -109,7 +109,7 @@ public class FinanceEntryController {
     }
 
 
-    @GetMapping("/get/summary/expense/{userId}")
+    @PostMapping("/get/summary/expense/{userId}")
     public ResponseEntity<Map<String, Double>> getCategoryWiseSpendingForCurrentMonth(@PathVariable Long userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -126,7 +126,7 @@ public class FinanceEntryController {
         return ResponseEntity.ok(categoryWiseSpending);
     }
 
-    @GetMapping("/get/summary/income/{userId}")
+    @PostMapping("/get/summary/income/{userId}")
     public ResponseEntity<Map<String, Double>> getCategoryWiseIncomeForCurrentMonth(@PathVariable Long userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -143,13 +143,13 @@ public class FinanceEntryController {
         return ResponseEntity.ok(categoryWiseIncome);
     }
 
-    @GetMapping("/get/admin/transactions")
+    @PostMapping("/get/admin/transactions")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public List<FinanceEntry> getAllFinanceEntries() {
         return financeEntryService.findAll();
     }
 
-    @GetMapping("/get/admin/users")
+    @PostMapping("/get/admin/users")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public List<User> getAllUsers() {
         return userService.getAllUsers();
