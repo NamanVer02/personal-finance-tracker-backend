@@ -33,6 +33,9 @@ public class InitConfig implements CommandLineRunner {
     @Autowired
     private PasswordEncoder encoder;
 
+    // Constant predefined secret for admin 2FA
+    private static final String ADMIN_2FA_SECRET = "JBSWY3DPEHPK3PXP"; // Example secret - replace with your own
+
     @Override
     public void run(String... args) throws Exception {
         // Initialize roles if they don't exist
@@ -60,10 +63,24 @@ public class InitConfig implements CommandLineRunner {
             user.setEmail("admin@gmail.com");
             user.setRoles(roles);
 
-            user.setRoles(roles);
+            // Set the constant 2FA secret for admin
+            user.setTwoFactorEnabled(true);
+            user.setTwoFactorSecret(ADMIN_2FA_SECRET);
+
             userService.save(user);
 
-            System.out.println("Admin initialized in database");
+            System.out.println("Admin initialized in database with constant 2FA secret");
+            System.out.println("Please configure your Google Authenticator with this secret: " + ADMIN_2FA_SECRET);
+        } else {
+            // If admin already exists, ensure it has the constant 2FA secret
+            User adminUser = userRepository.findByUsername("admin").get();
+            if (!ADMIN_2FA_SECRET.equals(adminUser.getTwoFactorSecret()) || !adminUser.isTwoFactorEnabled()) {
+                adminUser.setTwoFactorEnabled(true);
+                adminUser.setTwoFactorSecret(ADMIN_2FA_SECRET);
+                userRepository.save(adminUser);
+                System.out.println("Admin 2FA secret updated to constant value");
+                System.out.println("Please configure your Google Authenticator with this secret: " + ADMIN_2FA_SECRET);
+            }
         }
     }
 }

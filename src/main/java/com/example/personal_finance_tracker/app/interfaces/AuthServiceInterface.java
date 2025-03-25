@@ -1,11 +1,10 @@
 package com.example.personal_finance_tracker.app.interfaces;
 
-import com.example.personal_finance_tracker.app.models.dto.JwtResponse;
-import com.example.personal_finance_tracker.app.models.dto.LoginRequest;
-import com.example.personal_finance_tracker.app.models.dto.MessageResponse;
-import com.example.personal_finance_tracker.app.models.dto.SignUpRequest;
+import com.example.personal_finance_tracker.app.models.dto.*;
 
 public interface AuthServiceInterface {
     JwtResponse authenticateUser(LoginRequest loginRequest);
-    MessageResponse registerUser(SignUpRequest signupRequest);
+    SignupResponse registerUser(SignUpRequest signupRequest);
+    TwoFactorSetupResponse setup2FA(String username);
+    JwtResponse verify2FA(TwoFactorVerifyRequest verifyRequest);
 }

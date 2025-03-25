@@ -1,10 +1,13 @@
 package com.example.personal_finance_tracker.app.security;
 
+import com.example.personal_finance_tracker.app.services.AuthService;
+import com.example.personal_finance_tracker.app.services.BlackListedTokenService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -22,6 +25,15 @@ public class JwtUtil {
     @Value("${app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
+    @Value("${app.jwtRefreshExpirationMs}")
+    private int jwtRefreshExpirationMs;
+
+    @Autowired
+    private AuthService authService;
+
+    @Autowired
+    private BlackListedTokenService blacklistedTokenService;
+
     public String generateJwtToken(Authentication authentication) {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
@@ -36,6 +48,17 @@ public class JwtUtil {
         return jwt;
     }
 
+    public String generateRefreshToken(Authentication authentication) {
+        UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
+
+        return Jwts.builder()
+                .setSubject(userPrincipal.getUsername())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtRefreshExpirationMs))
+                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .compact();
+    }
+
     private Key key() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
@@ -48,6 +71,12 @@ public class JwtUtil {
     public boolean validateJwtToken(String authToken) {
         try {
             Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
+
+            if (blacklistedTokenService.isTokenBlacklisted(authToken)) {
+                logger.error("JWT token is blacklisted");
+                return false;
+            }
+
             return true;
         } catch (MalformedJwtException e) {
             logger.error("Invalid JWT token: {}", e.getMessage());
@@ -63,5 +92,41 @@ public class JwtUtil {
         }
 
         return false;
+    }
+
+    public String generateJwtToken(String username) {
+        String jwt = Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .signWith(key(), SignatureAlgorithm.HS256)
+                .compact();
+
+        logger.info("Generated JWT for user: {}", username);
+        return jwt;
+    }
+
+
+    public String generateRefreshToken(String username) {
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtRefreshExpirationMs))
+                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .compact();
+    }
+
+    private String generateTokenFromUsername(String username) {
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .compact();
+    }
+
+
+    public Date getExpirationDateFromJwtToken(String token) {
+        return Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody().getExpiration();
     }
 }
