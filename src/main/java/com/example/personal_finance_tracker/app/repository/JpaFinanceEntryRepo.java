@@ -3,9 +3,7 @@ package com.example.personal_finance_tracker.app.repository;
 import com.example.personal_finance_tracker.app.interfaces.FinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.interfaces.JpaFinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
-import com.example.personal_finance_tracker.app.models.JpaFinanceEntry;
 import com.example.personal_finance_tracker.app.models.User;
-import com.example.personal_finance_tracker.app.services.FinanceEntryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,72 +14,64 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     private final JpaFinanceEntryRepoInterface jpaRepo;
-    private final FinanceEntryMapper financeMapper;
     private final UserRepo userRepo;
 
     @Override
-    public void deleteById (Long id) {
+    public void deleteById(Long id) {
         jpaRepo.deleteById(id);
     }
 
     @Override
-    public FinanceEntry create (FinanceEntry entry) {
-        JpaFinanceEntry jpaEntry = financeMapper.toJpaFinanceEntry(entry);
-        JpaFinanceEntry savedJpaEntry = jpaRepo.save(jpaEntry);
-        return financeMapper.toFinanceEntry(savedJpaEntry);
+    public FinanceEntry create(FinanceEntry entry) {
+        if (entry.getUserId() != null) {
+            userRepo.findById(entry.getUserId()).ifPresent(entry::setUser);
+        }
+        return jpaRepo.save(entry);
     }
 
     @Override
-    public FinanceEntry update (Long id, FinanceEntry financeEntry) throws Exception {
-        JpaFinanceEntry jpaFinanceEntry = jpaRepo.findById(id)
+    public FinanceEntry update(Long id, FinanceEntry financeEntry) throws Exception {
+        FinanceEntry existingEntry = jpaRepo.findById(id)
                 .orElseThrow(() -> new Exception("No entry found with the id" + id));
-        jpaFinanceEntry.setLabel(financeEntry.getLabel());
-        jpaFinanceEntry.setType(financeEntry.getType());
-        jpaFinanceEntry.setAmount(financeEntry.getAmount());
-        jpaFinanceEntry.setCategory(financeEntry.getCategory());
-        jpaFinanceEntry.setDate(financeEntry.getDate());
+        
+        existingEntry.setLabel(financeEntry.getLabel());
+        existingEntry.setType(financeEntry.getType());
+        existingEntry.setAmount(financeEntry.getAmount());
+        existingEntry.setCategory(financeEntry.getCategory());
+        existingEntry.setDate(financeEntry.getDate());
         
         // Preserve the user association - don't allow changing the user
         // If userId is provided in the update, verify it matches the existing user
-        if (financeEntry.getUserId() != null && jpaFinanceEntry.getUser() != null && 
-            !financeEntry.getUserId().equals(jpaFinanceEntry.getUser().getId())) {
+        if (financeEntry.getUserId() != null && existingEntry.getUser() != null && 
+            !financeEntry.getUserId().equals(existingEntry.getUser().getId())) {
             throw new Exception("Cannot change the user associated with a finance entry");
         }
 
-        JpaFinanceEntry savedJpaEntry = jpaRepo.save(jpaFinanceEntry);
-        return financeMapper.toFinanceEntry(savedJpaEntry);
+        return jpaRepo.save(existingEntry);
     }
 
     @Override
     public List<FinanceEntry> findAll() {
-        return jpaRepo.findAll().stream()
-                .map(financeMapper::toFinanceEntry)
-                .toList();
+        return jpaRepo.findAll();
     }
 
     @Override
-    public List<FinanceEntry> findByType (String type) {
-        return jpaRepo.findByType(type).stream()
-                .map(financeMapper::toFinanceEntry)
-                .toList();
+    public List<FinanceEntry> findByType(String type) {
+        return jpaRepo.findByType(type);
     }
     
     @Override
     public List<FinanceEntry> findByUserId(Long userId) {
         Optional<User> userOpt = userRepo.findById(userId);
         // Return empty list if user not found
-        return userOpt.map(user -> jpaRepo.findByUser(user).stream()
-                .map(financeMapper::toFinanceEntry)
-                .toList()).orElseGet(List::of);
+        return userOpt.map(jpaRepo::findByUser).orElseGet(List::of);
     }
     
     @Override
     public List<FinanceEntry> findByTypeAndUserId(String type, Long userId) {
         Optional<User> userOpt = userRepo.findById(userId);
         // Return empty list if user not found
-        return userOpt.map(user -> jpaRepo.findByTypeAndUser(type, user).stream()
-                .map(financeMapper::toFinanceEntry)
-                .toList()).orElseGet(List::of);
+        return userOpt.map(user -> jpaRepo.findByTypeAndUser(type, user)).orElseGet(List::of);
     }
 
     @Override
@@ -95,7 +85,7 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     }
 
     @Override
-    public JpaFinanceEntry save(JpaFinanceEntry jpaEntry) {
-        return jpaRepo.save(jpaEntry);
+    public FinanceEntry save(FinanceEntry entry) {
+        return jpaRepo.save(entry);
     }
 }

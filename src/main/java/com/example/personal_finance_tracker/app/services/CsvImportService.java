@@ -2,7 +2,6 @@ package com.example.personal_finance_tracker.app.services;
 
 import com.example.personal_finance_tracker.app.interfaces.FinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
-import com.example.personal_finance_tracker.app.models.JpaFinanceEntry;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import org.apache.commons.csv.CSVFormat;
@@ -30,9 +29,6 @@ public class CsvImportService {
 
     @Autowired
     private UserRepo userRepo;
-
-    @Autowired
-    private FinanceEntryMapper financeEntryMapper;
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -66,15 +62,11 @@ public class CsvImportService {
                     entry.setDate(new Date());
                 }
 
-                // Set the user ID
-                entry.setUserId(userId);
+                // Set the user
+                entry.setUser(user);
 
-                // Convert to JPA entity and save
-                JpaFinanceEntry jpaEntry = financeEntryMapper.toJpaFinanceEntry(entry);
-                JpaFinanceEntry savedEntry = financeEntryRepository.save(jpaEntry);
-
-                // Add to result list
-                result.add(financeEntryMapper.toFinanceEntry(savedEntry));
+                // Save and add to result list
+                result.add(financeEntryRepository.save(entry));
             }
         }
 
