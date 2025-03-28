@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 @Data
 @Entity
@@ -40,7 +40,7 @@ public class FinanceEntry {
     @Convert(converter = StringEncodeConverter.class)
     @Column(name = "entry_date")
     @Temporal(TemporalType.DATE)
-    private Date date;
+    private LocalDate date;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")

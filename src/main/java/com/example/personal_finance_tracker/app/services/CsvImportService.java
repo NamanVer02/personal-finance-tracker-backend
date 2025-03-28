@@ -14,10 +14,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,7 +30,7 @@ public class CsvImportService {
     @Autowired
     private UserRepo userRepo;
 
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public List<FinanceEntry> importCsvEntries(MultipartFile file, Long userId) throws IOException {
         List<FinanceEntry> result = new ArrayList<>();
@@ -53,13 +53,13 @@ public class CsvImportService {
                 entry.setAmount(Double.parseDouble(record.get("Amount")));
                 entry.setCategory(record.get("Category"));
 
-                // Parse the date
+                // Parse the date using LocalDate
                 try {
-                    Date date = DATE_FORMAT.parse(record.get("Date"));
+                    LocalDate date = LocalDate.parse(record.get("Date"), DATE_FORMATTER);
                     entry.setDate(date);
-                } catch (ParseException e) {
+                } catch (DateTimeParseException e) {
                     // Default to current date if parsing fails
-                    entry.setDate(new Date());
+                    entry.setDate(LocalDate.now());
                 }
 
                 // Set the user
