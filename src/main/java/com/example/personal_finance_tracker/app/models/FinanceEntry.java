@@ -63,4 +63,7 @@ public class FinanceEntry {
     public void setUserId(Long userId) {
         this.userId = userId;
     }
+
+    @Version
+    private Long version;
 }

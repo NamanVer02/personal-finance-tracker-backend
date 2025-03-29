@@ -27,4 +27,7 @@ public class DatabaseEventLog {
     private String entityName;
     private String entityId;
     private String description;
+
+    @Version
+    private Long version;
 }

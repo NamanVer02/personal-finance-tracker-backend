@@ -55,4 +55,7 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<FinanceEntry> financeEntries = new ArrayList<>();
+
+    @Version
+    private Long version;
 }

@@ -29,4 +29,7 @@ public class BlacklistedToken {
 
     @Column(nullable = false)
     private Date expiryDate;
+
+    @Version
+    private Long version;
 }
