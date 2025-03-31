@@ -14,6 +14,7 @@ public interface JpaFinanceEntryRepoInterface extends JpaRepository<FinanceEntry
     List<FinanceEntry> findByUser(User user);
     List<FinanceEntry> findByTypeAndUser(String type, User user);
 
+
     @Query("SELECT f.category, SUM(f.amount) FROM FinanceEntry f " +
             "WHERE f.user.id = :userId AND f.type = 'Expense' AND YEAR(f.date) = YEAR(CURRENT_DATE) AND MONTH(f.date) = MONTH(CURRENT_DATE) " +
             "GROUP BY f.category")

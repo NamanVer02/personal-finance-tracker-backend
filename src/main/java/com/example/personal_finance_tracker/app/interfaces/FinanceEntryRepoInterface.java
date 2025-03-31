@@ -3,6 +3,7 @@ package com.example.personal_finance_tracker.app.interfaces;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
 
 import java.util.List;
+import java.util.Map;
 
 public interface FinanceEntryRepoInterface {
     void deleteById(Long id);
@@ -15,4 +16,8 @@ public interface FinanceEntryRepoInterface {
     List<Object[]> findCategoryWiseSpendingForCurrentMonth(Long userId);
     List<Object[]> findCategoryWiseIncomeForCurrentMonth(Long userId);
     FinanceEntry save(FinanceEntry entry);
+    double sumByType(String type);
+    double sumByTypeAndUserId(String type, Long userId);
+    Map<String, Double> getMonthlyAggregateByType(String type);
+    Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId);
 }
