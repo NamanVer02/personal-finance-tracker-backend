@@ -1,6 +1,7 @@
 package com.example.personal_finance_tracker.app.routes;
 
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
+import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.services.FinanceEntryService;
 import com.example.personal_finance_tracker.app.services.UserService;
 import com.itextpdf.text.*;
@@ -10,7 +11,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
@@ -198,6 +202,108 @@ public class DataDownloadController {
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate PDF: " + e.getMessage(), e);
+        }
+    }
+
+    @PostMapping("/download/accountant/summary/csv")
+    @PreAuthorize("hasRole('ROLE_ACCOUNTANT') or hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> accountantDownloadSummaryCsv() {
+        // This will generate a summary report without exposing detailed transactions
+        List<User> users = userService.getAllUsers();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PrintWriter writer = new PrintWriter(outputStream);
+
+        // Write CSV headers
+        writer.println("User ID,Username,Total Income,Total Expense,Net Amount");
+
+        // Write data for each user
+        for (User user : users) {
+            double totalIncome = financeEntryService.getTotalIncomeForUser(user.getId());
+            double totalExpense = financeEntryService.getTotalExpenseForUser(user.getId());
+            double netAmount = totalIncome - totalExpense;
+
+            writer.println(user.getId() + "," + user.getUsername() + "," +
+                    totalIncome + "," + totalExpense + "," + netAmount);
+        }
+
+        writer.close();
+
+        byte[] csvBytes = outputStream.toByteArray();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", "FinancialSummary.csv");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(csvBytes);
+    }
+
+    @PostMapping("/download/accountant/summary/pdf")
+    @PreAuthorize("hasRole('ROLE_ACCOUNTANT') or hasRole('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> accountantDownloadSummaryPdf() {
+        // Generate a PDF summary report
+        List<User> users = userService.getAllUsers();
+        byte[] pdfBytes = generateAccountantSummaryPdf(users);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "FinancialSummary.pdf");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
+    }
+
+    private byte[] generateAccountantSummaryPdf(List<User> users) {
+        Document document = new Document(PageSize.A4, 50, 50, 50, 50);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+        try {
+            PdfWriter.getInstance(document, outputStream);
+            document.open();
+
+            // Add title
+            Font titleFont = new Font(Font.FontFamily.HELVETICA, 18, Font.BOLD);
+            Paragraph title = new Paragraph("Financial Summary Report", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+            document.add(new Paragraph(" ")); // Empty line
+
+            // Create summary table
+            PdfPTable table = new PdfPTable(5);
+            table.setWidthPercentage(100);
+
+            // Add table headers
+            String[] headers = {"User ID", "Username", "Total Income", "Total Expense", "Net Amount"};
+            for (String header : headers) {
+                PdfPCell cell = new PdfPCell(new Phrase(header, new Font(Font.FontFamily.HELVETICA, 12, Font.BOLD)));
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                cell.setPadding(5);
+                table.addCell(cell);
+            }
+
+            // Add data rows
+            for (User user : users) {
+                double totalIncome = financeEntryService.getTotalIncomeForUser(user.getId());
+                double totalExpense = financeEntryService.getTotalExpenseForUser(user.getId());
+                double netAmount = totalIncome - totalExpense;
+
+                table.addCell(String.valueOf(user.getId()));
+                table.addCell(user.getUsername());
+                table.addCell(String.format("$%.2f", totalIncome));
+                table.addCell(String.format("$%.2f", totalExpense));
+                table.addCell(String.format("$%.2f", netAmount));
+            }
+
+            document.add(table);
+            document.close();
+
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new byte[0];
         }
     }
 }

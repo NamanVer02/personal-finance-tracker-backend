@@ -67,4 +67,39 @@ public class FinanceEntryService {
 
         return categoryWiseIncome;
     }
+
+    public double getTotalIncomeForAllUsers() {
+        // Implementation to calculate total income for all users
+        return financeEntryRepo.sumByType("income");
+    }
+
+    public double getTotalExpenseForAllUsers() {
+        // Implementation to calculate total expense for all users
+        return financeEntryRepo.sumByType("expense");
+    }
+
+    public double getTotalIncomeForUser(Long userId) {
+        // Implementation to calculate total income for a specific user
+        return financeEntryRepo.sumByTypeAndUserId("income", userId);
+    }
+
+    public double getTotalExpenseForUser(Long userId) {
+        // Implementation to calculate total expense for a specific user
+        return financeEntryRepo.sumByTypeAndUserId("expense", userId);
+    }
+
+    public Map<String, Double> getMonthlyIncomeForAllUsers() {
+        // Implementation to get monthly income aggregated by month
+        return financeEntryRepo.getMonthlyAggregateByType("income");
+    }
+
+    public Map<String, Double> getMonthlyExpenseForAllUsers() {
+        // Implementation to get monthly expense aggregated by month
+        return financeEntryRepo.getMonthlyAggregateByType("expense");
+    }
+
+    public Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId) {
+        // Implementation to get category-wise expense for current month
+        return financeEntryRepo.getCategoryWiseExpenseForCurrentMonth(userId);
+    }
 }

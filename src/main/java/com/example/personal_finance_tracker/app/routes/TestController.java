@@ -19,10 +19,15 @@ public class TestController {
         return "User Content.";
     }
 
-
     @GetMapping("/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public String adminAccess() {
         return "Admin Board.";
+    }
+
+    @GetMapping("/accountant")
+    @PreAuthorize("hasRole('ACCOUNTANT')")
+    public String accountantAccess() {
+        return "Accountant Board.";
     }
 }

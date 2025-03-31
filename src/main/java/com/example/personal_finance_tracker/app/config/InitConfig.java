@@ -9,6 +9,7 @@ import com.example.personal_finance_tracker.app.services.RoleService;
 import com.example.personal_finance_tracker.app.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Component
+@Profile("!dev & !prod")
 public class InitConfig implements CommandLineRunner {
 
     @Autowired
@@ -38,6 +40,7 @@ public class InitConfig implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        System.out.println("Running with default profile (neither dev nor prod active)");
         // Initialize roles if they don't exist
         if (roleRepository.count() == 0) {
             Role userRole = new Role();
@@ -47,6 +50,10 @@ public class InitConfig implements CommandLineRunner {
             Role adminRole = new Role();
             adminRole.setName(ERole.ROLE_ADMIN);
             roleRepository.save(adminRole);
+
+            Role accountantRole = new Role();
+            accountantRole.setName(ERole.ROLE_ACCOUNTANT);
+            roleRepository.save(accountantRole);
 
             System.out.println("Roles initialized in database");
         }

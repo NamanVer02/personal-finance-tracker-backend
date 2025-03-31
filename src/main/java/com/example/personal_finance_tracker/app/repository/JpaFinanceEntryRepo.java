@@ -7,7 +7,10 @@ import com.example.personal_finance_tracker.app.models.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -87,5 +90,59 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     @Override
     public FinanceEntry save(FinanceEntry entry) {
         return jpaRepo.save(entry);
+    }
+
+    @Override
+    public double sumByType(String type) {
+        // Calculate sum of amounts for a given type (income or expense)
+        List<FinanceEntry> entries = jpaRepo.findByType(type);
+        return entries.stream()
+                .mapToDouble(FinanceEntry::getAmount)
+                .sum();
+    }
+
+    @Override
+    public double sumByTypeAndUserId(String type, Long userId) {
+        // Calculate sum of amounts for a given type and user
+        Optional<User> userOptional = userRepo.findById(userId);
+        if (userOptional.isPresent()) {
+            List<FinanceEntry> entries = jpaRepo.findByTypeAndUser(type, userOptional.get());
+            return entries.stream()
+                    .mapToDouble(FinanceEntry::getAmount)
+                    .sum();
+        }
+        return 0.0;
+    }
+
+    @Override
+    public Map<String, Double> getMonthlyAggregateByType(String type) {
+        // Calculate monthly aggregates for a given type
+        Map<String, Double> monthlyAggregates = new HashMap<>();
+        List<FinanceEntry> entries = jpaRepo.findByType(type);
+
+        // Group entries by month and sum amounts
+        entries.forEach(entry -> {
+            LocalDate date = entry.getDate();
+            String monthYear = date.getMonth().toString() + " " + date.getYear();
+
+            monthlyAggregates.merge(monthYear, entry.getAmount(), Double::sum);
+        });
+
+        return monthlyAggregates;
+    }
+
+    @Override
+    public Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId) {
+        // Get category-wise expense for current month
+        List<Object[]> results = jpaRepo.findCategoryWiseSpendingForCurrentMonth(userId);
+        Map<String, Double> categoryWiseExpense = new HashMap<>();
+
+        for (Object[] row : results) {
+            String category = (String) row[0];
+            Double amount = (Double) row[1];
+            categoryWiseExpense.put(category, amount);
+        }
+
+        return categoryWiseExpense;
     }
 }
