@@ -88,6 +88,16 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     }
 
     @Override
+    public List<Object[]> findCategoryWiseSpendingForCurrentYear(Long userId) {
+        return jpaRepo.findCategoryWiseSpendingForCurrentMonth(userId);
+    }
+
+    @Override
+    public List<Object[]> findCategoryWiseIncomeForCurrentYear(Long userId) {
+        return jpaRepo.findCategoryWiseIncomeForCurrentMonth(userId);
+    }
+
+    @Override
     public FinanceEntry save(FinanceEntry entry) {
         return jpaRepo.save(entry);
     }
@@ -135,6 +145,34 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     public Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId) {
         // Get category-wise expense for current month
         List<Object[]> results = jpaRepo.findCategoryWiseSpendingForCurrentMonth(userId);
+        Map<String, Double> categoryWiseExpense = new HashMap<>();
+
+        for (Object[] row : results) {
+            String category = (String) row[0];
+            Double amount = (Double) row[1];
+            categoryWiseExpense.put(category, amount);
+        }
+
+        return categoryWiseExpense;
+    }
+
+    @Override
+    public Map<String, Double> getCategoryWiseExpenseForCurrentYear(Long userId) {
+        List<Object[]> results = jpaRepo.findCategoryWiseSpendingForCurrentYear(userId);
+        Map<String, Double> categoryWiseExpense = new HashMap<>();
+
+        for (Object[] row : results) {
+            String category = (String) row[0];
+            Double amount = (Double) row[1];
+            categoryWiseExpense.put(category, amount);
+        }
+
+        return categoryWiseExpense;
+    }
+
+    @Override
+    public Map<String, Double> getCategoryWiseIncomeForCurrentYear(Long userId) {
+        List<Object[]> results = jpaRepo.findCategoryWiseIncomeForCurrentYear(userId);
         Map<String, Double> categoryWiseExpense = new HashMap<>();
 
         for (Object[] row : results) {

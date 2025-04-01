@@ -57,8 +57,8 @@ public class AccountantController {
         summary.put("netAmount", netAmount);
 
         // Category-wise summary
-        Map<String, Double> categoryWiseIncome = financeEntryService.getCategoryWiseIncomeForCurrentMonth(userId);
-        Map<String, Double> categoryWiseExpense = financeEntryService.getCategoryWiseExpenseForCurrentMonth(userId);
+        Map<String, Double> categoryWiseIncome = financeEntryService.getCategoryWiseIncomeForCurrentYear(userId);
+        Map<String, Double> categoryWiseExpense = financeEntryService.getCategoryWiseExpenseForCurrentYear(userId);
 
         summary.put("categoryWiseIncome", categoryWiseIncome);
         summary.put("categoryWiseExpense", categoryWiseExpense);

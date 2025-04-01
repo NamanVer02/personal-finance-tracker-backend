@@ -1,4 +1,4 @@
-package com.example.personal_finance_tracker.app.exception;
+package com.example.personal_finance_tracker.app.exceptions;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
