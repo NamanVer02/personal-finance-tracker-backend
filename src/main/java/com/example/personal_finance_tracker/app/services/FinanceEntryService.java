@@ -70,36 +70,39 @@ public class FinanceEntryService {
 
     public double getTotalIncomeForAllUsers() {
         // Implementation to calculate total income for all users
-        return financeEntryRepo.sumByType("income");
+        return financeEntryRepo.sumByType("Income");
     }
 
     public double getTotalExpenseForAllUsers() {
         // Implementation to calculate total expense for all users
-        return financeEntryRepo.sumByType("expense");
+        return financeEntryRepo.sumByType("Expense");
     }
 
     public double getTotalIncomeForUser(Long userId) {
         // Implementation to calculate total income for a specific user
-        return financeEntryRepo.sumByTypeAndUserId("income", userId);
+        return financeEntryRepo.sumByTypeAndUserId("Income", userId);
     }
 
     public double getTotalExpenseForUser(Long userId) {
         // Implementation to calculate total expense for a specific user
-        return financeEntryRepo.sumByTypeAndUserId("expense", userId);
+        return financeEntryRepo.sumByTypeAndUserId("Expense", userId);
     }
 
     public Map<String, Double> getMonthlyIncomeForAllUsers() {
         // Implementation to get monthly income aggregated by month
-        return financeEntryRepo.getMonthlyAggregateByType("income");
+        return financeEntryRepo.getMonthlyAggregateByType("Income");
     }
 
     public Map<String, Double> getMonthlyExpenseForAllUsers() {
         // Implementation to get monthly expense aggregated by month
-        return financeEntryRepo.getMonthlyAggregateByType("expense");
+        return financeEntryRepo.getMonthlyAggregateByType("Expense");
     }
 
-    public Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId) {
-        // Implementation to get category-wise expense for current month
-        return financeEntryRepo.getCategoryWiseExpenseForCurrentMonth(userId);
+    public Map<String, Double> getCategoryWiseExpenseForCurrentYear(Long userId) {
+        return financeEntryRepo.getCategoryWiseExpenseForCurrentYear(userId);
+    }
+
+    public Map<String, Double> getCategoryWiseIncomeForCurrentYear(Long userId) {
+        return financeEntryRepo.getCategoryWiseExpenseForCurrentYear(userId);
     }
 }

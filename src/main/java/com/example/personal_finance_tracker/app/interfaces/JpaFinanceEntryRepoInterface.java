@@ -24,4 +24,14 @@ public interface JpaFinanceEntryRepoInterface extends JpaRepository<FinanceEntry
             "WHERE f.user.id = :userId AND f.type = 'Income' AND YEAR(f.date) = YEAR(CURRENT_DATE) AND MONTH(f.date) = MONTH(CURRENT_DATE) " +
             "GROUP BY f.category")
     List<Object[]> findCategoryWiseIncomeForCurrentMonth(@Param("userId") Long userId);
+
+    @Query("SELECT f.category, SUM(f.amount) FROM FinanceEntry f " +
+            "WHERE f.user.id = :userId AND f.type = 'Expense' AND YEAR(f.date) = YEAR(CURRENT_DATE) " +
+            "GROUP BY f.category")
+    List<Object[]> findCategoryWiseSpendingForCurrentYear(@Param("userId") Long userId);
+
+    @Query("SELECT f.category, SUM(f.amount) FROM FinanceEntry f " +
+            "WHERE f.user.id = :userId AND f.type = 'Income' AND YEAR(f.date) = YEAR(CURRENT_DATE) " +
+            "GROUP BY f.category")
+    List<Object[]> findCategoryWiseIncomeForCurrentYear(@Param("userId") Long userId);
 }
