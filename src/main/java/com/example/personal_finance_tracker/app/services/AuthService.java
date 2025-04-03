@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -59,6 +60,8 @@ public class AuthService implements AuthServiceInterface {
 
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
+        User user = userRepo.findByUsername(loginRequest.getUsername()).orElse(null);
+
         // First authenticate with username and password
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -68,9 +71,11 @@ public class AuthService implements AuthServiceInterface {
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
             // Check if user has 2FA enabled
-            User user = userRepo.findByUsername(loginRequest.getUsername())
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            if (user != null && !user.isAccountNonLocked()) {
+                throw new LockedException("Account is locked. Please try again after 10 minutes.");
+            }
 
+            assert user != null;
             if (user.isTwoFactorEnabled()) {
                 // If 2FA code is provided, verify it
                 if (loginRequest.getTwoFactorCode() != null) {
@@ -86,7 +91,7 @@ public class AuthService implements AuthServiceInterface {
                     String refreshToken = jwtUtils.generateRefreshToken(authentication);
 
                     List<String> roles = userDetails.getAuthorities().stream()
-                            .map(item -> item.getAuthority())
+                            .map(GrantedAuthority::getAuthority)
                             .collect(Collectors.toList());
 
                     return new JwtResponse(
@@ -128,7 +133,14 @@ public class AuthService implements AuthServiceInterface {
                         false);
             }
         } catch (BadCredentialsException e) {
-            throw new BadCredentialsException("Invalid username or password");
+            if (user != null) {
+                userService.incrementFailedAttempts(user);
+
+                if (userService.isMaxFailedAttemptsReached(user)) {
+                    userService.lockUser(user);
+                }
+            }
+            throw e;
         }
     }
 

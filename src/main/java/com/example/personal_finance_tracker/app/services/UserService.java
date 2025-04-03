@@ -3,11 +3,14 @@ package com.example.personal_finance_tracker.app.services;
 import com.example.personal_finance_tracker.app.interfaces.UserInterface;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +18,10 @@ import java.util.stream.Collectors;
 
 @Service
 public class UserService implements UserInterface {
+
+    @Value("${app.max_failed_attempts}")
+    private int maxFailedAttempts;
+
     @Autowired
     private UserRepo userRepo;
 
@@ -59,5 +66,25 @@ public class UserService implements UserInterface {
         return user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority(role.getName().name()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void incrementFailedAttempts(User user) {
+        int newFailedAttempts = user.getFailedAttempts() + 1;
+        userRepo.updateFailedAttempts(newFailedAttempts, user.getUsername());
+    }
+
+    @Transactional
+    public void resetFailedAttempts(String username) {
+        userRepo.updateFailedAttempts(0, username);
+    }
+
+    @Transactional
+    public void lockUser(User user) {
+        userRepo.lockUser(LocalDateTime.now(), user.getUsername());
+    }
+
+    public boolean isMaxFailedAttemptsReached(User user) {
+        return user.getFailedAttempts() >= maxFailedAttempts;
     }
 }
