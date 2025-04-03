@@ -61,8 +61,20 @@ public class User {
     private Long version;
 
     private int failedAttempts;
-
     private LocalDateTime lockTime;
+    private LocalDateTime lastLoginDate;
+
+    public void updateLastLoginDate() {
+        this.lastLoginDate = LocalDateTime.now();
+    }
+
+    public boolean isAccountExpired() {
+        if (lastLoginDate == null) {
+            return false;
+        }
+
+        return LocalDateTime.now().isAfter(lastLoginDate.plusDays(30));
+    }
 
     public boolean isAccountNonLocked() {
         if (lockTime == null) {

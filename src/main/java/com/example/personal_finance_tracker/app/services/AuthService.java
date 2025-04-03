@@ -11,7 +11,6 @@ import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.security.JwtUtil;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
@@ -94,6 +93,10 @@ public class AuthService implements AuthServiceInterface {
                             .map(GrantedAuthority::getAuthority)
                             .collect(Collectors.toList());
 
+                    userService.resetFailedAttempts(user.getUsername());
+                    user.updateLastLoginDate();
+                    userRepo.save(user);
+
                     return new JwtResponse(
                             accessToken,
                             refreshToken,
@@ -122,6 +125,10 @@ public class AuthService implements AuthServiceInterface {
                 List<String> roles = userDetails.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toList());
+
+                userService.resetFailedAttempts(user.getUsername());
+                user.updateLastLoginDate();
+                userRepo.save(user);
 
                 return new JwtResponse(
                         accessToken,
@@ -295,10 +302,5 @@ public class AuthService implements AuthServiceInterface {
 
     public boolean isTokenBlacklisted(String token) {
         return blacklistedTokenRepository.existsByToken(token);
-    }
-
-    @Scheduled(cron = "0 0 0 * * ?")
-    public void cleanupExpiredTokens() {
-        blacklistedTokenRepository.deleteByExpiryDate(new Date());
     }
 }

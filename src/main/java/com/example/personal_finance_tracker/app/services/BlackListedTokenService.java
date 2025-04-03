@@ -11,21 +11,21 @@ import java.util.Date;
 @Service
 public class BlackListedTokenService {
     @Autowired
-    private BlacklistedTokenRepository blacklistedTokenRepository;
+    private BlacklistedTokenRepository blacklistedTokenRepo;
 
     public void blacklistToken(String token, Date expiryDate) {
         BlacklistedToken blacklistedToken = new BlacklistedToken();
         blacklistedToken.setToken(token);
         blacklistedToken.setExpiryDate(expiryDate);
-        blacklistedTokenRepository.save(blacklistedToken);
+        blacklistedTokenRepo.save(blacklistedToken);
     }
 
     public boolean isTokenBlacklisted(String token) {
-        return blacklistedTokenRepository.existsByToken(token);
+        return blacklistedTokenRepo.existsByToken(token);
     }
 
-    @Scheduled(cron = "0 0 0 * * ?")
-    public void cleanupExpiredTokens() {
-        blacklistedTokenRepository.deleteByExpiryDate(new Date());
+    @Scheduled(fixedRate = 60000)
+    public void deleteExpiredTokens() {
+        blacklistedTokenRepo.deleteByExpiryDate(new Date());
     }
 }
