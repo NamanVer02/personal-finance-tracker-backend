@@ -1,12 +1,12 @@
 package com.example.personal_finance_tracker.app.services;
 
 import com.example.personal_finance_tracker.app.interfaces.AuthServiceInterface;
-import com.example.personal_finance_tracker.app.models.BlacklistedToken;
+import com.example.personal_finance_tracker.app.models.TokenRegistry;
 import com.example.personal_finance_tracker.app.models.ERole;
 import com.example.personal_finance_tracker.app.models.Role;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.models.dto.*;
-import com.example.personal_finance_tracker.app.repository.BlacklistedTokenRepository;
+import com.example.personal_finance_tracker.app.repository.TokenRegistryRepository;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.security.JwtUtil;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
@@ -52,10 +52,12 @@ public class AuthService implements AuthServiceInterface {
     private GAService gaService;
 
     @Autowired
-    private BlacklistedTokenRepository blacklistedTokenRepository;
+    private TokenRegistryRepository tokenRegistryRepository;
 
     @Autowired
-    private BlackListedTokenService blacklistedTokenService;
+    private TokenRegistryService blacklistedTokenRegistryService;
+    @Autowired
+    private TokenRegistryService tokenRegistryService;
 
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
@@ -85,6 +87,8 @@ public class AuthService implements AuthServiceInterface {
                     }
 
                     // 2FA successful, set authentication and generate JWT
+//                    tokenRegistryService.invalidatePreviousTokens(user.getUsername());
+
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     String accessToken = jwtUtils.generateJwtToken(authentication);
                     String refreshToken = jwtUtils.generateRefreshToken(authentication);
@@ -118,6 +122,8 @@ public class AuthService implements AuthServiceInterface {
                 }
             } else {
                 // No 2FA required, process normally
+//                tokenRegistryService.invalidatePreviousTokens(user.getUsername());
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 String accessToken = jwtUtils.generateJwtToken(authentication);
                 String refreshToken = jwtUtils.generateJwtToken(authentication);
@@ -289,18 +295,18 @@ public class AuthService implements AuthServiceInterface {
 
     public void logout(String token) {
         Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
-        blacklistedTokenService.blacklistToken(token, expiryDate);
+        blacklistedTokenRegistryService.blacklistToken(token, expiryDate);
     }
 
     private void blacklistToken(String token) {
         Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
-        BlacklistedToken blacklistedToken = new BlacklistedToken();
-        blacklistedToken.setToken(token);
-        blacklistedToken.setExpiryDate(expiryDate);
-        blacklistedTokenRepository.save(blacklistedToken);
+        TokenRegistry tokenRegistry = new TokenRegistry();
+        tokenRegistry.setToken(token);
+        tokenRegistry.setExpiryDate(expiryDate);
+        tokenRegistryRepository.save(tokenRegistry);
     }
 
     public boolean isTokenBlacklisted(String token) {
-        return blacklistedTokenRepository.existsByToken(token);
+        return tokenRegistryRepository.existsByToken(token);
     }
 }

@@ -6,6 +6,7 @@ import com.example.personal_finance_tracker.app.config.StringEncodeConverter;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
@@ -46,8 +47,10 @@ public class FinanceEntry {
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "financeEntries"})
     private User user;
-    
+
+    // Setter for userId to maintain backward compatibility
     // Transient field to maintain compatibility with existing code
+    @Setter
     @Transient
     private Long userId;
     
@@ -57,11 +60,6 @@ public class FinanceEntry {
             return userId;
         }
         return user != null ? user.getId() : null;
-    }
-    
-    // Setter for userId to maintain backward compatibility
-    public void setUserId(Long userId) {
-        this.userId = userId;
     }
 
     @Version

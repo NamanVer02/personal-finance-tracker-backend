@@ -1,7 +1,7 @@
 package com.example.personal_finance_tracker.app.scheduled;
 
 import com.example.personal_finance_tracker.app.models.User;
-import com.example.personal_finance_tracker.app.repository.BlacklistedTokenRepository;
+import com.example.personal_finance_tracker.app.repository.TokenRegistryRepository;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,7 +17,7 @@ public class CleanupSchedules {
     private UserRepo userRepository;
 
     @Autowired
-    private BlacklistedTokenRepository blacklistedTokenRepo;
+    private TokenRegistryRepository blacklistedTokenRepo;
 
     @Scheduled(fixedRate = 60000) // Run every minute
     public void unlockAccounts() {
