@@ -23,7 +23,7 @@ public class TokenRegistry {
 
     @Encode
     @Convert(converter = StringEncodeConverter.class)
-    @Column(unique = true, nullable = false, length = 500)
+    @Column(nullable = false, length = 500)
     private String token;
 
 

@@ -87,7 +87,7 @@ public class AuthService implements AuthServiceInterface {
                     }
 
                     // 2FA successful, set authentication and generate JWT
-//                    tokenRegistryService.invalidatePreviousTokens(user.getUsername());
+                    tokenRegistryService.invalidatePreviousTokens(user.getUsername());
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     String accessToken = jwtUtils.generateJwtToken(authentication);
@@ -122,7 +122,7 @@ public class AuthService implements AuthServiceInterface {
                 }
             } else {
                 // No 2FA required, process normally
-//                tokenRegistryService.invalidatePreviousTokens(user.getUsername());
+                tokenRegistryService.invalidatePreviousTokens(user.getUsername());
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 String accessToken = jwtUtils.generateJwtToken(authentication);

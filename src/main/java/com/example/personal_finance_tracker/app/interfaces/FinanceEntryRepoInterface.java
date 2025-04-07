@@ -22,4 +22,5 @@ public interface FinanceEntryRepoInterface {
     Map<String, Double> getCategoryWiseExpenseForCurrentYear(Long userId);
     Map<String, Double> getCategoryWiseIncomeForCurrentYear(Long userId);
     List<FinanceEntry> saveAll(List<FinanceEntry> entries);
+    List<FinanceEntry> findAllByUser_Id(Long userId);
 }

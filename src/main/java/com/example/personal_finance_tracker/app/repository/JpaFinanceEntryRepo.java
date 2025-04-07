@@ -179,4 +179,9 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
         entityManager.clear();
         return entries;
     }
+
+    @Override
+    public List<FinanceEntry> findAllByUser_Id(Long id) {
+        return jpaRepo.findByUser_Id(id);
+    }
 }

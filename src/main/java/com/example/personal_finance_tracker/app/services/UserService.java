@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,10 +26,16 @@ public class UserService implements UserInterface {
     @Autowired
     private UserRepo userRepo;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     public Optional<User> findByUsername(String username) {
         return userRepo.findByUsername(username);
     }
+
+    @Override
+    public Optional<User> findById(Long id) { return userRepo.findById(id); }
 
     @Override
     public Boolean existsByUsername(String username) {
@@ -86,5 +93,63 @@ public class UserService implements UserInterface {
 
     public boolean isMaxFailedAttemptsReached(User user) {
         return user.getFailedAttempts() >= maxFailedAttempts;
+    }
+
+    @Override
+    @Transactional
+    public boolean updatePassword(Long id, String currentPassword, String newPassword) {
+        Optional<User> userOpt = userRepo.findById(id);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+
+            // Verify current password
+            if (passwordEncoder.matches(currentPassword, user.getPassword())) {
+                // Encode and set new password
+                user.setPassword(passwordEncoder.encode(newPassword));
+                userRepo.save(user);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Transactional
+    public boolean deleteUser(Long id, String password) {
+        Optional<User> userOpt = userRepo.findById(id);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+
+            // Verify password before deletion
+            if (passwordEncoder.matches(password, user.getPassword())) {
+                userRepo.delete(user);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Override
+    @Transactional
+    public boolean disableTwoFactorAuth(Long id, String password) {
+        Optional<User> userOpt = userRepo.findById(id);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+
+            // Verify password before disabling 2FA
+            if (passwordEncoder.matches(password, user.getPassword())) {
+                user.setTwoFactorEnabled(false);
+                // Clear 2FA secret if you store it
+                user.setTwoFactorSecret(null);
+                userRepo.save(user);
+                return true;
+            }
+        }
+
+        return false;
     }
 }
