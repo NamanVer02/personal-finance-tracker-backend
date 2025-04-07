@@ -88,7 +88,7 @@ public class DataDownloadController {
                             transaction.getAmount() + "," +
                             transaction.getType() + "," +
                             transaction.getCategory() + "," +
-                            dateFormatter.format(transaction.getDate()) + "," +
+                            transaction.getDate() + "," +
                             username
             );
         }

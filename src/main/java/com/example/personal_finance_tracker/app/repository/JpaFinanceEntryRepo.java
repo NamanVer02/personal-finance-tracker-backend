@@ -4,6 +4,9 @@ import com.example.personal_finance_tracker.app.interfaces.FinanceEntryRepoInter
 import com.example.personal_finance_tracker.app.interfaces.JpaFinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.models.User;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +21,9 @@ import java.util.Optional;
 public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     private final JpaFinanceEntryRepoInterface jpaRepo;
     private final UserRepo userRepo;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public void deleteById(Long id) {
@@ -88,16 +94,6 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     }
 
     @Override
-    public List<Object[]> findCategoryWiseSpendingForCurrentYear(Long userId) {
-        return jpaRepo.findCategoryWiseSpendingForCurrentMonth(userId);
-    }
-
-    @Override
-    public List<Object[]> findCategoryWiseIncomeForCurrentYear(Long userId) {
-        return jpaRepo.findCategoryWiseIncomeForCurrentMonth(userId);
-    }
-
-    @Override
     public FinanceEntry save(FinanceEntry entry) {
         return jpaRepo.save(entry);
     }
@@ -142,21 +138,6 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
     }
 
     @Override
-    public Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId) {
-        // Get category-wise expense for current month
-        List<Object[]> results = jpaRepo.findCategoryWiseSpendingForCurrentMonth(userId);
-        Map<String, Double> categoryWiseExpense = new HashMap<>();
-
-        for (Object[] row : results) {
-            String category = (String) row[0];
-            Double amount = (Double) row[1];
-            categoryWiseExpense.put(category, amount);
-        }
-
-        return categoryWiseExpense;
-    }
-
-    @Override
     public Map<String, Double> getCategoryWiseExpenseForCurrentYear(Long userId) {
         List<Object[]> results = jpaRepo.findCategoryWiseSpendingForCurrentYear(userId);
         Map<String, Double> categoryWiseExpense = new HashMap<>();
@@ -182,5 +163,20 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
         }
 
         return categoryWiseExpense;
+    }
+
+    @Transactional
+    @Override
+    public List<FinanceEntry> saveAll(List<FinanceEntry> entries) {
+        for (int i = 0; i < entries.size(); i++) {
+            entityManager.persist(entries.get(i));
+            if (i % 100 == 0) { // Flush every 100 entries
+                entityManager.flush();
+                entityManager.clear();
+            }
+        }
+        entityManager.flush();
+        entityManager.clear();
+        return entries;
     }
 }

@@ -15,13 +15,11 @@ public interface FinanceEntryRepoInterface {
     List<FinanceEntry> findByTypeAndUserId(String type, Long userId);
     List<Object[]> findCategoryWiseSpendingForCurrentMonth(Long userId);
     List<Object[]> findCategoryWiseIncomeForCurrentMonth(Long userId);
-    List<Object[]> findCategoryWiseSpendingForCurrentYear(Long userId);
-    List<Object[]> findCategoryWiseIncomeForCurrentYear(Long userId);
     FinanceEntry save(FinanceEntry entry);
     double sumByType(String type);
     double sumByTypeAndUserId(String type, Long userId);
     Map<String, Double> getMonthlyAggregateByType(String type);
-    Map<String, Double> getCategoryWiseExpenseForCurrentMonth(Long userId);
     Map<String, Double> getCategoryWiseExpenseForCurrentYear(Long userId);
     Map<String, Double> getCategoryWiseIncomeForCurrentYear(Long userId);
+    List<FinanceEntry> saveAll(List<FinanceEntry> entries);
 }

@@ -103,6 +103,6 @@ public class FinanceEntryService {
     }
 
     public Map<String, Double> getCategoryWiseIncomeForCurrentYear(Long userId) {
-        return financeEntryRepo.getCategoryWiseExpenseForCurrentYear(userId);
+        return financeEntryRepo.getCategoryWiseIncomeForCurrentYear(userId);
     }
 }
