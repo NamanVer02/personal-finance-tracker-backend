@@ -34,4 +34,6 @@ public interface JpaFinanceEntryRepoInterface extends JpaRepository<FinanceEntry
             "WHERE f.user.id = :userId AND f.type = 'Income' AND YEAR(f.date) = YEAR(CURRENT_DATE) " +
             "GROUP BY f.category")
     List<Object[]> findCategoryWiseIncomeForCurrentYear(@Param("userId") Long userId);
+
+    List<FinanceEntry> findByUser_Id(Long id);
 }

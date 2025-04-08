@@ -33,5 +33,4 @@ public class PasswordResetController {
             return ResponseEntity.badRequest().body(Map.of("message", "Invalid request or 2FA code"));
         }
     }
-
 }

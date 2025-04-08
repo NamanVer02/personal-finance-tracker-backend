@@ -1,19 +1,19 @@
 package com.example.personal_finance_tracker.app.services;
 
 import com.example.personal_finance_tracker.app.interfaces.AuthServiceInterface;
-import com.example.personal_finance_tracker.app.models.BlacklistedToken;
+import com.example.personal_finance_tracker.app.models.TokenRegistry;
 import com.example.personal_finance_tracker.app.models.ERole;
 import com.example.personal_finance_tracker.app.models.Role;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.models.dto.*;
-import com.example.personal_finance_tracker.app.repository.BlacklistedTokenRepository;
+import com.example.personal_finance_tracker.app.repository.TokenRegistryRepository;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.security.JwtUtil;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -52,13 +52,17 @@ public class AuthService implements AuthServiceInterface {
     private GAService gaService;
 
     @Autowired
-    private BlacklistedTokenRepository blacklistedTokenRepository;
+    private TokenRegistryRepository tokenRegistryRepository;
 
     @Autowired
-    private BlackListedTokenService blacklistedTokenService;
+    private TokenRegistryService blacklistedTokenRegistryService;
+    @Autowired
+    private TokenRegistryService tokenRegistryService;
 
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
+        User user = userRepo.findByUsername(loginRequest.getUsername()).orElse(null);
+
         // First authenticate with username and password
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -68,9 +72,11 @@ public class AuthService implements AuthServiceInterface {
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
             // Check if user has 2FA enabled
-            User user = userRepo.findByUsername(loginRequest.getUsername())
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            if (user != null && !user.isAccountNonLocked()) {
+                throw new LockedException("Account is locked. Please try again after 10 minutes.");
+            }
 
+            assert user != null;
             if (user.isTwoFactorEnabled()) {
                 // If 2FA code is provided, verify it
                 if (loginRequest.getTwoFactorCode() != null) {
@@ -81,13 +87,19 @@ public class AuthService implements AuthServiceInterface {
                     }
 
                     // 2FA successful, set authentication and generate JWT
+                    tokenRegistryService.invalidatePreviousTokens(user.getUsername());
+
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     String accessToken = jwtUtils.generateJwtToken(authentication);
                     String refreshToken = jwtUtils.generateRefreshToken(authentication);
 
                     List<String> roles = userDetails.getAuthorities().stream()
-                            .map(item -> item.getAuthority())
+                            .map(GrantedAuthority::getAuthority)
                             .collect(Collectors.toList());
+
+                    userService.resetFailedAttempts(user.getUsername());
+                    user.updateLastLoginDate();
+                    userRepo.save(user);
 
                     return new JwtResponse(
                             accessToken,
@@ -110,6 +122,8 @@ public class AuthService implements AuthServiceInterface {
                 }
             } else {
                 // No 2FA required, process normally
+                tokenRegistryService.invalidatePreviousTokens(user.getUsername());
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 String accessToken = jwtUtils.generateJwtToken(authentication);
                 String refreshToken = jwtUtils.generateJwtToken(authentication);
@@ -117,6 +131,10 @@ public class AuthService implements AuthServiceInterface {
                 List<String> roles = userDetails.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toList());
+
+                userService.resetFailedAttempts(user.getUsername());
+                user.updateLastLoginDate();
+                userRepo.save(user);
 
                 return new JwtResponse(
                         accessToken,
@@ -128,7 +146,14 @@ public class AuthService implements AuthServiceInterface {
                         false);
             }
         } catch (BadCredentialsException e) {
-            throw new BadCredentialsException("Invalid username or password");
+            if (user != null) {
+                userService.incrementFailedAttempts(user);
+
+                if (userService.isMaxFailedAttemptsReached(user)) {
+                    userService.lockUser(user);
+                }
+            }
+            throw e;
         }
     }
 
@@ -270,23 +295,18 @@ public class AuthService implements AuthServiceInterface {
 
     public void logout(String token) {
         Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
-        blacklistedTokenService.blacklistToken(token, expiryDate);
+        blacklistedTokenRegistryService.blacklistToken(token, expiryDate);
     }
 
     private void blacklistToken(String token) {
         Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
-        BlacklistedToken blacklistedToken = new BlacklistedToken();
-        blacklistedToken.setToken(token);
-        blacklistedToken.setExpiryDate(expiryDate);
-        blacklistedTokenRepository.save(blacklistedToken);
+        TokenRegistry tokenRegistry = new TokenRegistry();
+        tokenRegistry.setToken(token);
+        tokenRegistry.setExpiryDate(expiryDate);
+        tokenRegistryRepository.save(tokenRegistry);
     }
 
     public boolean isTokenBlacklisted(String token) {
-        return blacklistedTokenRepository.existsByToken(token);
-    }
-
-    @Scheduled(cron = "0 0 0 * * ?")
-    public void cleanupExpiredTokens() {
-        blacklistedTokenRepository.deleteByExpiryDate(new Date());
+        return tokenRegistryRepository.existsByToken(token);
     }
 }

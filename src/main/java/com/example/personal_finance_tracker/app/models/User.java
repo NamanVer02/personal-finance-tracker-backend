@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -58,4 +59,28 @@ public class User {
 
     @Version
     private Long version;
+
+    private int failedAttempts;
+    private LocalDateTime lockTime;
+    private LocalDateTime lastLoginDate;
+
+    public void updateLastLoginDate() {
+        this.lastLoginDate = LocalDateTime.now();
+    }
+
+    public boolean isAccountExpired() {
+        if (lastLoginDate == null) {
+            return false;
+        }
+
+        return LocalDateTime.now().isAfter(lastLoginDate.plusDays(30));
+    }
+
+    public boolean isAccountNonLocked() {
+        if (lockTime == null) {
+            return true;
+        }
+        LocalDateTime unlockTime = lockTime.plusMinutes(1);
+        return LocalDateTime.now().isAfter(unlockTime);
+    }
 }

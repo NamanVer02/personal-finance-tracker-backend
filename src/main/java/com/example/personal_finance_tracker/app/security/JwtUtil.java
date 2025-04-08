@@ -1,7 +1,7 @@
 package com.example.personal_finance_tracker.app.security;
 
-import com.example.personal_finance_tracker.app.services.AuthService;
-import com.example.personal_finance_tracker.app.services.BlackListedTokenService;
+import com.example.personal_finance_tracker.app.models.TokenRegistry;
+import com.example.personal_finance_tracker.app.services.TokenRegistryService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -29,10 +29,7 @@ public class JwtUtil {
     private int jwtRefreshExpirationMs;
 
     @Autowired
-    private AuthService authService;
-
-    @Autowired
-    private BlackListedTokenService blacklistedTokenService;
+    private TokenRegistryService tokenRegistryService;
 
     public String generateJwtToken(Authentication authentication) {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
@@ -45,6 +42,17 @@ public class JwtUtil {
                 .compact();
 
         logger.info("Generated JWT for user: {}", userPrincipal.getUsername());
+
+        tokenRegistryService.invalidatePreviousTokens(userPrincipal.getUsername());
+
+        TokenRegistry tokenRegistry = new TokenRegistry();
+        tokenRegistry.setToken(jwt);
+        tokenRegistry.setExpiryDate(new Date((new Date()).getTime() + jwtExpirationMs));
+        tokenRegistry.setActive(true);
+        tokenRegistry.setUsername(userPrincipal.getUsername());
+        tokenRegistryService.saveTokenRegistry(tokenRegistry);
+
+
         return jwt;
     }
 
@@ -72,7 +80,7 @@ public class JwtUtil {
         try {
             Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
 
-            if (blacklistedTokenService.isTokenBlacklisted(authToken)) {
+            if (tokenRegistryService.isTokenBlacklisted(authToken)) {
                 logger.error("JWT token is blacklisted");
                 return false;
             }
@@ -102,6 +110,16 @@ public class JwtUtil {
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
 
+        tokenRegistryService.invalidatePreviousTokens(username);
+
+
+        TokenRegistry tokenRegistry = new TokenRegistry();
+        tokenRegistry.setToken(jwt);
+        tokenRegistry.setExpiryDate(new Date((new Date()).getTime() + jwtExpirationMs));
+        tokenRegistry.setActive(true);
+        tokenRegistry.setUsername(username);
+        tokenRegistryService.saveTokenRegistry(tokenRegistry);
+
         logger.info("Generated JWT for user: {}", username);
         return jwt;
     }
@@ -115,16 +133,6 @@ public class JwtUtil {
                 .signWith(SignatureAlgorithm.HS256, jwtSecret)
                 .compact();
     }
-
-    private String generateTokenFromUsername(String username) {
-        return Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret)
-                .compact();
-    }
-
 
     public Date getExpirationDateFromJwtToken(String token) {
         return Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody().getExpiration();

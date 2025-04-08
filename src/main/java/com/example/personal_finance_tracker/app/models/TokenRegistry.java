@@ -11,24 +11,30 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 @Entity
-@Table(name = "blacklisted_tokens")
+@Table(name = "token_registry")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Loggable
-public class BlacklistedToken {
+public class TokenRegistry {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Encode
     @Convert(converter = StringEncodeConverter.class)
-    @Column(unique = true, nullable = false, length = 500)
+    @Column(nullable = false, length = 500)
     private String token;
 
 
     @Column(nullable = false)
     private Date expiryDate;
+
+    @Column(nullable = false)
+    private String username;
+
+    @Column(nullable = false)
+    private boolean isActive = true;
 
     @Version
     private Long version;
