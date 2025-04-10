@@ -195,6 +195,47 @@ public class FinanceEntryController {
         return ResponseEntity.ok(entries);
     }
 
+    @PostMapping("/admin/search")
+    public ResponseEntity<Page<FinanceEntry>> searchFinanceEntriesAdmin(
+            @RequestParam(required = false) Long id,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) BigDecimal minAmount,
+            @RequestParam(required = false) BigDecimal maxAmount,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "date,desc") String[] sort) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(createSortOrder(sort)));
+
+        Page<FinanceEntry> entries = (id == null) ? financeEntryRepository.findAllFinanceEntriesWithFiltersAdmin(
+                type,
+                category,
+                minAmount,
+                maxAmount,
+                startDate,
+                endDate,
+                searchTerm,
+                pageable
+        ) : financeEntryRepository.findFinanceEntriesWithFilters(
+                id,
+                type,
+                category,
+                minAmount,
+                maxAmount,
+                startDate,
+                endDate,
+                searchTerm,
+                pageable
+        );
+
+
+        return ResponseEntity.ok(entries);
+    }
+
     private Sort.Order[] createSortOrder(String[] sort) {
         List<Sort.Order> orders = new ArrayList<>();
         

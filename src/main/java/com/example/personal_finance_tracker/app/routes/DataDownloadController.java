@@ -171,8 +171,10 @@ public class DataDownloadController {
 
             // Add data rows
             Font dataFont = new Font(Font.FontFamily.HELVETICA, 10);
+
             for (FinanceEntry transaction : transactions) {
                 String username = userService.getUsernameByUserId(transaction.getUserId());
+                java.time.LocalDate localDate = transaction.getDate();
 
                 // Add cells
                 table.addCell(new Phrase(String.valueOf(transaction.getId()), dataFont));
@@ -180,7 +182,15 @@ public class DataDownloadController {
                 table.addCell(new Phrase(String.valueOf(transaction.getAmount()), dataFont));
                 table.addCell(new Phrase(transaction.getType(), dataFont));
                 table.addCell(new Phrase(transaction.getCategory(), dataFont));
-                table.addCell(new Phrase(dateFormatter.format(transaction.getDate()), dataFont));
+
+                if (localDate != null) {
+                    // Convert LocalDate to java.util.Date
+                    java.util.Date date = java.sql.Date.valueOf(localDate);  // or use Instant/ZonedDateTime if needed
+                    table.addCell(new Phrase(dateFormatter.format(date), dataFont));
+                } else {
+                    table.addCell(new Phrase("N/A", dataFont));
+                }
+
                 table.addCell(new Phrase(username, dataFont));
             }
 
