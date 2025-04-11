@@ -5,6 +5,7 @@ import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -22,6 +23,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class CsvImportService {
 
@@ -31,17 +33,19 @@ public class CsvImportService {
     @Autowired
     private UserRepo userRepo;
 
-    private static final int BATCH_SIZE = 1000; // Process in chunks
+    private static final int BATCH_SIZE = 1000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
 
     @Transactional
     public List<FinanceEntry> importCsvEntries(MultipartFile file, Long userId) throws IOException {
-        // Validate file first
+        log.info("Starting CSV import for user ID: {}", userId);
         validateFile(file);
 
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> {
+                    log.error("User not found: {}", userId);
+                    return new IllegalArgumentException("User not found");
+                });
 
         List<FinanceEntry> batch = new ArrayList<>(BATCH_SIZE);
         List<FinanceEntry> result = new ArrayList<>();
@@ -61,25 +65,26 @@ public class CsvImportService {
                     batch.add(entry);
 
                     if (batch.size() % BATCH_SIZE == 0) {
+                        log.info("Processing batch of {} entries", BATCH_SIZE);
                         result.addAll(financeEntryRepository.saveAll(batch));
                         batch.clear();
                     }
                 } catch (Exception e) {
-                    // Log and skip bad records
-                    System.out.println("Error processing record :" + record.getRecordNumber() + e.getMessage());
+                    log.warn("Error processing record {}: {}", record.getRecordNumber(), e.getMessage());
                 }
             }
 
-            // Save remaining entries
             if (!batch.isEmpty()) {
+                log.info("Processing final batch of {} entries", batch.size());
                 result.addAll(financeEntryRepository.saveAll(batch));
             }
         }
-
+        log.info("Successfully imported {} entries for user ID: {}", result.size(), userId);
         return result;
     }
 
     private FinanceEntry parseRecord(CSVRecord record, User user) {
+        log.debug("Parsing record {}", record.getRecordNumber());
         FinanceEntry entry = new FinanceEntry();
         entry.setLabel(record.get("Label"));
         entry.setType(record.get("Type"));
@@ -94,7 +99,8 @@ public class CsvImportService {
         try {
             return Double.parseDouble(value);
         } catch (NumberFormatException e) {
-            return 0.0; // or throw custom exception
+            log.warn("Invalid number format: {}", value);
+            return 0.0;
         }
     }
 
@@ -102,16 +108,20 @@ public class CsvImportService {
         try {
             return LocalDate.parse(dateString, DATE_FORMATTER);
         } catch (DateTimeParseException e) {
+            log.warn("Invalid date format: {}, using current date", dateString);
             return LocalDate.now();
         }
     }
 
     private void validateFile(MultipartFile file) {
+        log.info("Validating uploaded file");
         if (!"text/csv".equals(file.getContentType())) {
+            log.error("Invalid file type: {}", file.getContentType());
             throw new IllegalArgumentException("Only CSV files are allowed");
         }
 
-        if (file.getSize() > 100 * 1024 * 1024) { // 100MB
+        if (file.getSize() > 100 * 1024 * 1024) {
+            log.error("File size exceeded: {} bytes", file.getSize());
             throw new IllegalArgumentException("File size exceeds 100MB limit");
         }
     }

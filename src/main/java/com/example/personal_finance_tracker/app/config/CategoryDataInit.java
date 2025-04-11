@@ -2,6 +2,7 @@ package com.example.personal_finance_tracker.app.config;
 
 import com.example.personal_finance_tracker.app.models.Category;
 import com.example.personal_finance_tracker.app.repository.CategoryRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -12,7 +13,8 @@ import java.util.Arrays;
 import java.util.List;
 
 @Component
-@Order(2) // Run after roles are initialized
+@Order(2)
+@Slf4j
 public class CategoryDataInit implements CommandLineRunner {
 
     @Autowired
@@ -21,9 +23,18 @@ public class CategoryDataInit implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        System.out.println("Initializing default categories...");
+        log.info("Starting category data initialization");
 
-        // Define expense categories
+        try {
+            initializeCategories();
+            log.info("Category initialization completed successfully");
+        } catch (Exception e) {
+            log.error("Category initialization failed: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    private void initializeCategories() {
         List<String> expenseCategories = Arrays.asList(
                 "Housing",
                 "Utilities",
@@ -38,7 +49,6 @@ public class CategoryDataInit implements CommandLineRunner {
                 "Miscellaneous"
         );
 
-        // Define income categories
         List<String> incomeCategories = Arrays.asList(
                 "Salary",
                 "Business",
@@ -47,34 +57,47 @@ public class CategoryDataInit implements CommandLineRunner {
                 "Miscellaneous"
         );
 
-        // Initialize expense categories
-        for (String categoryName : expenseCategories) {
-            createCategoryIfNotExists(categoryName, "Expense");
-        }
+        log.debug("Initializing {} expense categories", expenseCategories.size());
+        initializeCategoryType(expenseCategories, "Expense");
 
-        // Initialize income categories
-        for (String categoryName : incomeCategories) {
-            createCategoryIfNotExists(categoryName, "Income");
-        }
-
-        System.out.println("Default categories initialized successfully");
+        log.debug("Initializing {} income categories", incomeCategories.size());
+        initializeCategoryType(incomeCategories, "Income");
     }
 
-    private void createCategoryIfNotExists(String name, String type) {
-        if (!categoryRepository.existsByName(name)) {
-            Category category = new Category();
-            category.setName(name);
-            category.setType(type);
-            categoryRepository.save(category);
-            System.out.println("Created " + type + " category: " + name);
-        } else {
-            // Update type if it's different
-            Category existingCategory = categoryRepository.findByName(name).orElse(null);
-            if (existingCategory != null && !existingCategory.getType().equals(type)) {
-                existingCategory.setType(type);
-                categoryRepository.save(existingCategory);
-                System.out.println("Updated type for category: " + name + " to " + type);
+    private void initializeCategoryType(List<String> categories, String type) {
+        for (String categoryName : categories) {
+            try {
+                handleCategoryCreation(categoryName, type);
+            } catch (Exception e) {
+                log.error("Error processing category '{}': {}", categoryName, e.getMessage());
             }
+        }
+    }
+
+    private void handleCategoryCreation(String name, String type) {
+        categoryRepository.findByName(name).ifPresentOrElse(
+                existingCategory -> updateCategoryType(existingCategory, type),
+                () -> createNewCategory(name, type)
+        );
+    }
+
+    private void createNewCategory(String name, String type) {
+        Category category = new Category();
+        category.setName(name);
+        category.setType(type);
+        categoryRepository.save(category);
+        log.info("Created new {} category: {}", type, name);
+    }
+
+    private void updateCategoryType(Category existingCategory, String newType) {
+        if (!existingCategory.getType().equals(newType)) {
+            String oldType = existingCategory.getType();
+            existingCategory.setType(newType);
+            categoryRepository.save(existingCategory);
+            log.warn("Updated category '{}' type from {} to {}",
+                    existingCategory.getName(), oldType, newType);
+        } else {
+            log.debug("Category '{}' already has type {}", existingCategory.getName(), newType);
         }
     }
 }
