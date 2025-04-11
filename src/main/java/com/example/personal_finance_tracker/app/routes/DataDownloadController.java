@@ -6,6 +6,7 @@ import com.example.personal_finance_tracker.app.services.FinanceEntryService;
 import com.example.personal_finance_tracker.app.services.UserService;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -23,6 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
+@Slf4j
 public class DataDownloadController {
 
     @Autowired
@@ -36,7 +38,9 @@ public class DataDownloadController {
     // Existing CSV download endpoints
     @PostMapping("/download/{userId}/csv")
     public ResponseEntity<byte[]> downloadCsv(@PathVariable Long userId) {
+        log.info("Entering downloadCsv method for userId: {}", userId);
         List<FinanceEntry> transactions = financeEntryService.findByUserId(userId);
+        log.debug("Transactions found: {}", transactions);
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PrintWriter writer = getPrintWriter(outputStream, transactions);
@@ -48,6 +52,7 @@ public class DataDownloadController {
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDispositionFormData("attachment", "Transactions.csv");
 
+        log.info("Exiting downloadCsv method for userId: {}", userId);
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(csvBytes);
@@ -56,7 +61,9 @@ public class DataDownloadController {
     @PostMapping("/download/admin/csv")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> adminDownloadCsv() {
+        log.info("Entering adminDownloadCsv method");
         List<FinanceEntry> transactions = financeEntryService.findAll();
+        log.debug("All transactions found: {}", transactions);
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PrintWriter writer = getPrintWriter(outputStream, transactions);
@@ -68,12 +75,14 @@ public class DataDownloadController {
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDispositionFormData("attachment", "Transactions.csv");
 
+        log.info("Exiting adminDownloadCsv method");
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(csvBytes);
     }
 
     private PrintWriter getPrintWriter(ByteArrayOutputStream outputStream, List<FinanceEntry> transactions) {
+        log.info("Entering getPrintWriter method with transactions list size: {}", transactions.size());
         PrintWriter writer = new PrintWriter(outputStream);
 
         // Write CSV header
@@ -94,19 +103,23 @@ public class DataDownloadController {
         }
 
         writer.flush();
+        log.info("Exiting getPrintWriter method");
         return writer;
     }
 
     // New PDF download endpoints
     @PostMapping("/download/{userId}/pdf")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable Long userId) {
+        log.info("Entering downloadPdf method for userId: {}", userId);
         List<FinanceEntry> transactions = financeEntryService.findByUserId(userId);
+        log.debug("Transactions found for PDF: {}", transactions);
         byte[] pdfBytes = generatePdfBytes(transactions);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("attachment", "Transactions.pdf");
 
+        log.info("Exiting downloadPdf method for userId: {}", userId);
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(pdfBytes);
@@ -115,19 +128,23 @@ public class DataDownloadController {
     @PostMapping("/download/admin/pdf")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> adminDownloadPdf() {
+        log.info("Entering adminDownloadPdf method");
         List<FinanceEntry> transactions = financeEntryService.findAll();
+        log.debug("All transactions found for PDF: {}", transactions);
         byte[] pdfBytes = generatePdfBytes(transactions);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("attachment", "Transactions.pdf");
 
+        log.info("Exiting adminDownloadPdf method");
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(pdfBytes);
     }
 
     private byte[] generatePdfBytes(List<FinanceEntry> transactions) {
+        log.info("Entering generatePdfBytes method with transactions list size: {}", transactions.size());
         Document document = new Document(PageSize.A4, 50, 50, 50, 50);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
@@ -141,6 +158,7 @@ public class DataDownloadController {
             title.setAlignment(Element.ALIGN_CENTER);
             title.setSpacingAfter(20);
             document.add(title);
+            log.debug("Added title to PDF document");
 
             // Add date generated
             Font dateFont = new Font(Font.FontFamily.HELVETICA, 12, Font.ITALIC);
@@ -149,6 +167,7 @@ public class DataDownloadController {
             dateGenerated.setAlignment(Element.ALIGN_RIGHT);
             dateGenerated.setSpacingAfter(20);
             document.add(dateGenerated);
+            log.debug("Added date generated to PDF document");
 
             // Create table
             PdfPTable table = new PdfPTable(7); // 7 columns
@@ -168,11 +187,14 @@ public class DataDownloadController {
                 cell.setPadding(5);
                 table.addCell(cell);
             }
+            log.debug("Added table headers to PDF document");
 
             // Add data rows
             Font dataFont = new Font(Font.FontFamily.HELVETICA, 10);
+
             for (FinanceEntry transaction : transactions) {
                 String username = userService.getUsernameByUserId(transaction.getUserId());
+                java.time.LocalDate localDate = transaction.getDate();
 
                 // Add cells
                 table.addCell(new Phrase(String.valueOf(transaction.getId()), dataFont));
@@ -180,9 +202,18 @@ public class DataDownloadController {
                 table.addCell(new Phrase(String.valueOf(transaction.getAmount()), dataFont));
                 table.addCell(new Phrase(transaction.getType(), dataFont));
                 table.addCell(new Phrase(transaction.getCategory(), dataFont));
-                table.addCell(new Phrase(dateFormatter.format(transaction.getDate()), dataFont));
+
+                if (localDate != null) {
+                    // Convert LocalDate to java.util.Date
+                    java.util.Date date = java.sql.Date.valueOf(localDate);  // or use Instant/ZonedDateTime if needed
+                    table.addCell(new Phrase(dateFormatter.format(date), dataFont));
+                } else {
+                    table.addCell(new Phrase("N/A", dataFont));
+                }
+
                 table.addCell(new Phrase(username, dataFont));
             }
+            log.debug("Added data rows to PDF document");
 
             document.add(table);
 
@@ -196,11 +227,14 @@ public class DataDownloadController {
                 canvas.showText("Page " + i + " of " + pageCount);
                 canvas.endText();
             }
+            log.debug("Added footer with page numbers to PDF document");
 
             document.close();
+            log.info("Exiting generatePdfBytes method - PDF generated successfully");
             return outputStream.toByteArray();
 
         } catch (Exception e) {
+            log.error("Failed to generate PDF: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to generate PDF: " + e.getMessage(), e);
         }
     }
@@ -208,8 +242,10 @@ public class DataDownloadController {
     @PostMapping("/download/accountant/summary/csv")
     @PreAuthorize("hasRole('ROLE_ACCOUNTANT') or hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> accountantDownloadSummaryCsv() {
+        log.info("Entering accountantDownloadSummaryCsv method");
         // This will generate a summary report without exposing detailed transactions
         List<User> users = userService.getAllUsers();
+        log.debug("All users found: {}", users);
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(outputStream);
@@ -235,6 +271,7 @@ public class DataDownloadController {
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDispositionFormData("attachment", "FinancialSummary.csv");
 
+        log.info("Exiting accountantDownloadSummaryCsv method");
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(csvBytes);
@@ -243,20 +280,24 @@ public class DataDownloadController {
     @PostMapping("/download/accountant/summary/pdf")
     @PreAuthorize("hasRole('ROLE_ACCOUNTANT') or hasRole('ROLE_ADMIN')")
     public ResponseEntity<byte[]> accountantDownloadSummaryPdf() {
+        log.info("Entering accountantDownloadSummaryPdf method");
         // Generate a PDF summary report
         List<User> users = userService.getAllUsers();
+        log.debug("All users found: {}", users);
         byte[] pdfBytes = generateAccountantSummaryPdf(users);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("attachment", "FinancialSummary.pdf");
 
+        log.info("Exiting accountantDownloadSummaryPdf method");
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(pdfBytes);
     }
 
     private byte[] generateAccountantSummaryPdf(List<User> users) {
+        log.info("Entering generateAccountantSummaryPdf method with users list size: {}", users.size());
         Document document = new Document(PageSize.A4, 50, 50, 50, 50);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
@@ -270,6 +311,7 @@ public class DataDownloadController {
             title.setAlignment(Element.ALIGN_CENTER);
             document.add(title);
             document.add(new Paragraph(" ")); // Empty line
+            log.debug("Added title to PDF document");
 
             // Create summary table
             PdfPTable table = new PdfPTable(5);
@@ -283,6 +325,7 @@ public class DataDownloadController {
                 cell.setPadding(5);
                 table.addCell(cell);
             }
+            log.debug("Added table headers to PDF document");
 
             // Add data rows
             for (User user : users) {
@@ -296,12 +339,15 @@ public class DataDownloadController {
                 table.addCell(String.format("$%.2f", totalExpense));
                 table.addCell(String.format("$%.2f", netAmount));
             }
+            log.debug("Added data rows to PDF document");
 
             document.add(table);
             document.close();
+            log.info("Exiting generateAccountantSummaryPdf method - PDF generated successfully");
 
             return outputStream.toByteArray();
         } catch (Exception e) {
+            log.error("Error generating accountant summary PDF: {}", e.getMessage(), e);
             e.printStackTrace();
             return new byte[0];
         }

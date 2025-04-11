@@ -7,6 +7,7 @@ import com.example.personal_finance_tracker.app.repository.RoleRepo;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.services.RoleService;
 import com.example.personal_finance_tracker.app.services.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -18,7 +19,9 @@ import java.util.Set;
 
 @Component
 @Profile("dev")
+@Slf4j
 public class DevDataInit implements CommandLineRunner {
+
     @Autowired
     private RoleRepo roleRepository;
 
@@ -34,92 +37,114 @@ public class DevDataInit implements CommandLineRunner {
     @Autowired
     private PasswordEncoder encoder;
 
-    // Constant predefined secret for admin 2FA
+    // Security Note: Should be externalized for real development environments
     private static final String TEST_2FA_SECRET = "JBSWY3DPEHPK3PXP";
 
     @Override
     public void run(String... args) throws Exception {
-        // Initialize roles if they don't exist
+        log.info("Starting development data initialization");
+
+        try {
+            initializeRoles();
+            initializeTestUsers();
+        } catch (Exception e) {
+            log.error("Critical initialization error: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    private void initializeRoles() {
         if (roleRepository.count() == 0) {
-            Role userRole = new Role();
-            userRole.setName(ERole.ROLE_USER);
+            log.info("Initializing development roles");
+
+            Role userRole = createRole(ERole.ROLE_USER);
+            Role adminRole = createRole(ERole.ROLE_ADMIN);
+            Role accountantRole = createRole(ERole.ROLE_ACCOUNTANT);
+
             roleRepository.save(userRole);
-
-            Role adminRole = new Role();
-            adminRole.setName(ERole.ROLE_ADMIN);
             roleRepository.save(adminRole);
-
-            Role accountantRole = new Role();
-            accountantRole.setName(ERole.ROLE_ACCOUNTANT);
             roleRepository.save(accountantRole);
 
-            System.out.println("Roles initialized in database for dev environment");
+            log.info("Created 3 development roles: USER, ADMIN, ACCOUNTANT");
+        } else {
+            log.debug("Roles already exist - count: {}", roleRepository.count());
         }
+    }
 
-        if(userRepository.findByUsername("admin").isEmpty()) {
-            Set<Role> roles = new HashSet<>();
-            Role adminRole = roleService.findByName(ERole.ROLE_ADMIN)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(adminRole);
+    private Role createRole(ERole roleName) {
+        Role role = new Role();
+        role.setName(roleName);
+        log.debug("Created role: {}", roleName);
+        return role;
+    }
 
-            User user = new User();
-            user.setUsername("admin");
-            user.setPassword(encoder.encode("admin"));
-            user.setEmail("admin@gmail.com");
-            user.setRoles(roles);
+    private void initializeTestUsers() {
+        checkAndCreateUser(
+                "admin",
+                "admin",
+                ERole.ROLE_ADMIN,
+                true,
+                "admin@gmail.com"
+        );
 
-            // Set the constant 2FA secret for admin
-            user.setTwoFactorEnabled(true);
-            user.setTwoFactorSecret(TEST_2FA_SECRET);
+        checkAndCreateUser(
+                "testuser",
+                "password",
+                ERole.ROLE_USER,
+                true,
+                "test@example.com"
+        );
 
-            userService.save(user);
+        checkAndCreateUser(
+                "accountant",
+                "password",
+                ERole.ROLE_ACCOUNTANT,
+                true,
+                "accountant@example.com"
+        );
+    }
 
-            System.out.println("Admin initialized in database with 2FA secret for dev environment");
-            System.out.println("Please configure your Google Authenticator with this secret: " + TEST_2FA_SECRET);
-        }
+    private void checkAndCreateUser(
+            String username,
+            String password,
+            ERole role,
+            boolean twoFactorEnabled,
+            String email
+    ) {
+        userRepository.findByUsername(username).ifPresentOrElse(
+                existingUser -> log.debug("User {} already exists", username),
+                () -> createTestUser(username, password, role, twoFactorEnabled, email)
+        );
+    }
 
-        // Add test user
-        if(userRepository.findByUsername("testuser").isEmpty()) {
-            Set<Role> roles = new HashSet<>();
-            Role userRole = roleService.findByName(ERole.ROLE_USER)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(userRole);
+    private void createTestUser(
+            String username,
+            String password,
+            ERole role,
+            boolean twoFactorEnabled,
+            String email
+    ) {
+        log.info("Creating test user: {}", username);
 
-            User user = new User();
-            user.setUsername("testuser");
-            user.setPassword(encoder.encode("password"));
-            user.setEmail("test@example.com");
-            user.setRoles(roles);
-            user.setTwoFactorEnabled(false);
+        Set<Role> roles = new HashSet<>();
+        Role userRole = roleService.findByName(role)
+                .orElseThrow(() -> {
+                    log.error("Role {} not found", role);
+                    return new RuntimeException("Role not found: " + role);
+                });
+        roles.add(userRole);
 
-            user.setTwoFactorEnabled(true);
-            user.setTwoFactorSecret(TEST_2FA_SECRET);
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(encoder.encode(password));
+        user.setEmail(email);
+        user.setRoles(roles);
+        user.setTwoFactorEnabled(twoFactorEnabled);
+        user.setTwoFactorSecret(TEST_2FA_SECRET);
 
-            userService.save(user);
+        userService.save(user);
 
-            System.out.println("Test user initialized in database for dev environment");
-        }
-
-        // Add test accountant
-        if(userRepository.findByUsername("accountant").isEmpty()) {
-            Set<Role> roles = new HashSet<>();
-            Role accountantRole = roleService.findByName(ERole.ROLE_ACCOUNTANT)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(accountantRole);
-
-            User user = new User();
-            user.setUsername("accountant");
-            user.setPassword(encoder.encode("password"));
-            user.setEmail("accountant@example.com");
-            user.setRoles(roles);
-            user.setTwoFactorEnabled(false);
-
-            user.setTwoFactorEnabled(true);
-            user.setTwoFactorSecret(TEST_2FA_SECRET);
-
-            userService.save(user);
-
-            System.out.println("Test accountant initialized in database for dev environment");
-        }
+        log.warn("Security Note: Created test user {} with password '{}'", username, password);
+        log.info("2FA secret for {}: {}", username, TEST_2FA_SECRET);
     }
 }

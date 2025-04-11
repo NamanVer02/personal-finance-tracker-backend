@@ -1,8 +1,6 @@
 package com.example.personal_finance_tracker.app.models;
 
-import com.example.personal_finance_tracker.app.annotations.Encode;
 import com.example.personal_finance_tracker.app.annotations.Loggable;
-import com.example.personal_finance_tracker.app.config.StringEncodeConverter;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -19,26 +17,18 @@ public class FinanceEntry {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Encode
-    @Convert(converter = StringEncodeConverter.class)
     @Column(name = "label", columnDefinition = "VARCHAR(255)")
     private String label;
 
-    @Encode
-    @Convert(converter = StringEncodeConverter.class)
     @Column(name = "type")
     private String type;
 
     @Column(name = "amount")
     private Double amount;
 
-    @Encode
-    @Convert(converter = StringEncodeConverter.class)
     @Column(name = "category")
     private String category;
 
-    @Encode
-    @Convert(converter = StringEncodeConverter.class)
     @Column(name = "entry_date")
     @Temporal(TemporalType.DATE)
     private LocalDate date;

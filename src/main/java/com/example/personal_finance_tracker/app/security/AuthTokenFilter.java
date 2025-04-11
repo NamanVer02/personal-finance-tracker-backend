@@ -4,8 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 public class AuthTokenFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
@@ -23,31 +23,29 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
             // Enhanced logging to debug the issue
-            logger.info("Processing request: {}", request.getRequestURI());
+            log.info("Processing request: {}", request.getRequestURI());
 
             String headerAuth = request.getHeader("Authorization");
-            logger.info("Authorization header: {}", headerAuth);
+            log.info("Authorization header: {}", headerAuth);
 
             String jwt = parseJwt(request);
-            logger.info("Extracted JWT: {}", jwt);
+            log.info("Extracted JWT: {}", jwt);
 
             if (jwt != null) {
                 boolean isValid = jwtUtil.validateJwtToken(jwt);
-                logger.info("Is JWT valid: {}", isValid);
+                log.info("Is JWT valid: {}", isValid);
 
                 if (isValid) {
                     String username = jwtUtil.getUserNameFromJwtToken(jwt);
-                    logger.info("Username from token: {}", username);
+                    log.info("Username from token: {}", username);
 
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    logger.info("User details loaded: {}", userDetails.getPassword());
+                    log.info("User details loaded: {}", userDetails.getPassword());
 
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
@@ -57,11 +55,11 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    logger.info("Authentication set in SecurityContext");
+                    log.info("Authentication set in SecurityContext");
                 }
             }
         } catch (Exception e) {
-            logger.error("Cannot set user authentication: {}", e.getMessage());
+            log.error("Cannot set user authentication: {}", e.getMessage());
             e.printStackTrace(); // Add full stack trace for debugging
         }
 

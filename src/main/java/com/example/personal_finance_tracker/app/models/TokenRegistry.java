@@ -30,6 +30,8 @@ public class TokenRegistry {
     @Column(nullable = false)
     private Date expiryDate;
 
+    @Encode
+    @Convert(converter = StringEncodeConverter.class)
     @Column(nullable = false)
     private String username;
 

@@ -19,4 +19,15 @@ public interface FinanceEntryQueryRepository {
             String searchTerm,
             Pageable pageable
     );
+
+    Page<FinanceEntry> findAllFinanceEntriesWithFiltersAdmin(
+            String type,
+            String category,
+            BigDecimal minAmount,
+            BigDecimal maxAmount,
+            LocalDate startDate,
+            LocalDate endDate,
+            String searchTerm,
+            Pageable pageable
+    );
 }

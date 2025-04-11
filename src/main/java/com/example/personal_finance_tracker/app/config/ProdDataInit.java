@@ -3,6 +3,7 @@ package com.example.personal_finance_tracker.app.config;
 import com.example.personal_finance_tracker.app.models.ERole;
 import com.example.personal_finance_tracker.app.models.Role;
 import com.example.personal_finance_tracker.app.repository.RoleRepo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -10,27 +11,42 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("prod")
+@Slf4j
 public class ProdDataInit implements CommandLineRunner {
+
     @Autowired
     private RoleRepo roleRepository;
 
     @Override
     public void run(String... args) throws Exception {
-        // Initialize roles if they don't exist
-        if (roleRepository.count() == 0) {
-            Role userRole = new Role();
-            userRole.setName(ERole.ROLE_USER);
-            roleRepository.save(userRole);
+        log.info("Starting production data initialization");
 
-            Role adminRole = new Role();
-            adminRole.setName(ERole.ROLE_ADMIN);
-            roleRepository.save(adminRole);
+        try {
+            if (roleRepository.count() == 0) {
+                log.info("Initializing roles in production database");
 
-            Role accountantRole = new Role();
-            accountantRole.setName(ERole.ROLE_ACCOUNTANT);
-            roleRepository.save(accountantRole);
+                Role userRole = createRole(ERole.ROLE_USER);
+                Role adminRole = createRole(ERole.ROLE_ADMIN);
+                Role accountantRole = createRole(ERole.ROLE_ACCOUNTANT);
 
-            System.out.println("Roles initialized in production database");
+                roleRepository.save(userRole);
+                roleRepository.save(adminRole);
+                roleRepository.save(accountantRole);
+
+                log.info("Successfully initialized 3 roles: USER, ADMIN, ACCOUNTANT");
+            } else {
+                log.debug("Roles already exist in database - count: {}", roleRepository.count());
+            }
+        } catch (Exception e) {
+            log.error("Error during production data initialization: {}", e.getMessage());
+            throw e;
         }
+    }
+
+    private Role createRole(ERole roleName) {
+        Role role = new Role();
+        role.setName(roleName);
+        log.debug("Created role entity for: {}", roleName);
+        return role;
     }
 }

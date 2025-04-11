@@ -13,8 +13,8 @@ public interface FinanceEntryRepoInterface {
     List<FinanceEntry> findByType(String type);
     List<FinanceEntry> findByUserId(Long userId);
     List<FinanceEntry> findByTypeAndUserId(String type, Long userId);
-    List<Object[]> findCategoryWiseSpendingForCurrentMonth(Long userId);
-    List<Object[]> findCategoryWiseIncomeForCurrentMonth(Long userId);
+    List<Object[]> findCategoryWiseSpending(Long userId);
+    List<Object[]> findCategoryWiseIncome(Long userId);
     FinanceEntry save(FinanceEntry entry);
     double sumByType(String type);
     double sumByTypeAndUserId(String type, Long userId);
