@@ -3,6 +3,7 @@ package com.example.personal_finance_tracker.app.models;
 import com.example.personal_finance_tracker.app.annotations.Loggable;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.Setter;
 
@@ -17,18 +18,27 @@ public class FinanceEntry {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Label is required")
+    @Size(min = 3, max = 255, message = "Label must be between 3 and 255 characters")
     @Column(name = "label", columnDefinition = "VARCHAR(255)")
     private String label;
 
+    @NotNull(message = "Type is required")
+    @Pattern(regexp = "^(Income|Expense)$", message = "Type must be either 'Income' or 'Expense'")
     @Column(name = "type")
     private String type;
 
+    @NotNull(message = "Amount is required")
+    @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
     @Column(name = "amount")
     private Double amount;
 
+    @NotBlank(message = "Category is required")
     @Column(name = "category")
     private String category;
 
+    @NotNull(message = "Date is required")
+    @PastOrPresent(message = "Date cannot be in the future")
     @Column(name = "entry_date")
     @Temporal(TemporalType.DATE)
     private LocalDate date;

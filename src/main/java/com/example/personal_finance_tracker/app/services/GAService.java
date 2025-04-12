@@ -28,32 +28,47 @@ public class GAService {
 
     public String generateKey() {
         log.info("Generating new TOTP secret key");
-        GoogleAuthenticator gAuth = new GoogleAuthenticator();
-        final GoogleAuthenticatorKey key = gAuth.createCredentials();
-        return key.getKey();
+        try {
+            GoogleAuthenticator gAuth = new GoogleAuthenticator();
+            final GoogleAuthenticatorKey key = gAuth.createCredentials();
+            return key.getKey();
+        } catch (Exception e) {
+            log.error("Error generating TOTP secret key", e);
+            throw new RuntimeException("Failed to generate TOTP secret key", e);
+        }
     }
 
     public boolean isValid(String secret, int code) {
         log.info("Validating TOTP code for secret");
-        GoogleAuthenticator gAuth = new GoogleAuthenticator(
-                new GoogleAuthenticatorConfig.GoogleAuthenticatorConfigBuilder().build()
-        );
-        boolean isValid = gAuth.authorize(secret, code);
-        log.info("TOTP validation result: {}", isValid ? "valid" : "invalid");
-        return isValid;
+        try {
+            GoogleAuthenticator gAuth = new GoogleAuthenticator(
+                    new GoogleAuthenticatorConfig.GoogleAuthenticatorConfigBuilder().build()
+            );
+            boolean isValid = gAuth.authorize(secret, code);
+            log.info("TOTP validation result: {}", isValid ? "valid" : "invalid");
+            return isValid;
+        } catch (Exception e) {
+            log.error("Error validating TOTP code", e);
+            throw new RuntimeException("Failed to validate TOTP code", e);
+        }
     }
 
     public String generateQRUrl(String secret, String username) {
         log.info("Generating QR URL for username: {}", username);
-        String url = GoogleAuthenticatorQRGenerator.getOtpAuthTotpURL(
-                ISSUER,
-                username,
-                new GoogleAuthenticatorKey.Builder(secret).build());
         try {
-            return generateQRBase64(url);
+            String url = GoogleAuthenticatorQRGenerator.getOtpAuthTotpURL(
+                    ISSUER,
+                    username,
+                    new GoogleAuthenticatorKey.Builder(secret).build());
+            try {
+                return generateQRBase64(url);
+            } catch (Exception e) {
+                log.error("QR generation failed for {}: {}", username, e.getMessage());
+                throw new RuntimeException("Failed to generate QR code", e);
+            }
         } catch (Exception e) {
-            log.error("QR generation failed for {}: {}", username, e.getMessage());
-            return null;
+            log.error("Error generating QR URL for username: {}", username, e);
+            throw new RuntimeException("Failed to generate QR URL", e);
         }
     }
 
@@ -72,10 +87,15 @@ public class GAService {
             byte[] imageBytes = baos.toByteArray();
             log.info("QR code image generated successfully");
             return Base64.getEncoder().encodeToString(imageBytes);
-        } catch (WriterException | IOException e) {
-            log.error("QR image generation error: {}", e.getMessage());
-            e.printStackTrace();
-            return null;
+        } catch (WriterException e) {
+            log.error("QR code writing error: {}", e.getMessage());
+            throw new RuntimeException("Failed to write QR code", e);
+        } catch (IOException e) {
+            log.error("QR image generation IO error: {}", e.getMessage());
+            throw new RuntimeException("Failed to generate QR image", e);
+        } catch (Exception e) {
+            log.error("Unexpected error in QR generation: {}", e.getMessage());
+            throw new RuntimeException("Unexpected error in QR generation", e);
         }
     }
 }

@@ -5,6 +5,10 @@ import com.example.personal_finance_tracker.app.annotations.Loggable;
 import com.example.personal_finance_tracker.app.config.StringEncodeConverter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,14 +30,23 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    @Pattern(regexp = "^[a-zA-Z0-9._-]+$", message = "Username can only contain letters, numbers, dots, underscores and hyphens")
     @Encode
     @Convert(converter = StringEncodeConverter.class)
     @Column(nullable = false, unique = true)
     private String username;
 
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters long")
+    @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=]).*$", 
+             message = "Password must contain at least one digit, one lowercase, one uppercase letter, and one special character")
     @Column(nullable = false)
     private String password;
 
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email should be valid")
     @Encode
     @Convert(converter = StringEncodeConverter.class)
     @Column(nullable = false, unique = true)

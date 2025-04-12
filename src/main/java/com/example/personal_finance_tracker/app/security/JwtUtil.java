@@ -3,8 +3,10 @@ package com.example.personal_finance_tracker.app.security;
 import com.example.personal_finance_tracker.app.models.TokenRegistry;
 import com.example.personal_finance_tracker.app.services.TokenRegistryService;
 import io.jsonwebtoken.*;
+import com.example.personal_finance_tracker.app.exceptions.JwtAuthenticationException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -97,36 +99,60 @@ public class JwtUtil {
 
             logger.debug("Successfully extracted username from JWT");
             return username;
+        } catch (MalformedJwtException e) {
+            logger.error("Invalid JWT token format while extracting username: {}", e.getMessage());
+            throw new JwtAuthenticationException("Invalid JWT token format", e);
+        } catch (ExpiredJwtException e) {
+            logger.error("Expired JWT token while extracting username: {}", e.getMessage());
+            throw new JwtAuthenticationException("JWT token is expired", e);
+        } catch (UnsupportedJwtException e) {
+            logger.error("Unsupported JWT token while extracting username: {}", e.getMessage());
+            throw new JwtAuthenticationException("JWT token is unsupported", e);
+        } catch (IllegalArgumentException e) {
+            logger.error("JWT claims string is empty while extracting username: {}", e.getMessage());
+            throw new JwtAuthenticationException("JWT claims string is empty", e);
         } catch (JwtException e) {
             logger.error("Error extracting username from token: {}", e.getMessage());
-            throw e;
+            throw new JwtAuthenticationException("Failed to extract username from JWT token", e);
         }
     }
 
     public boolean validateJwtToken(String authToken) {
+        if (authToken == null || authToken.isEmpty()) {
+            logger.error("JWT token is null or empty");
+            return false;
+        }
+        
         try {
             Jws<Claims> claims = Jwts.parserBuilder()
                     .setSigningKey(key())
                     .build()
                     .parseClaimsJws(authToken);
 
-            if (tokenRegistryService.isTokenBlacklisted(authToken)) {
-                logger.warn("Blacklisted token attempt: {}", authToken);
-                return false;
+            try {
+                if (tokenRegistryService.isTokenBlacklisted(authToken)) {
+                    logger.warn("Blacklisted token attempt: {}", authToken);
+                    return false;
+                }
+            } catch (Exception e) {
+                logger.error("Error checking token blacklist status: {}", e.getMessage(), e);
+                // Continue with validation despite blacklist check failure
             }
 
             logger.debug("Valid JWT token for user: {}", claims.getBody().getSubject());
             return true;
         } catch (MalformedJwtException e) {
-            logger.error("Malformed JWT: {}", e.getMessage());
+            logger.error("Invalid JWT token format: {}", e.getMessage());
         } catch (ExpiredJwtException e) {
-            logger.warn("Expired JWT: {}", e.getMessage());
+            logger.warn("JWT token is expired: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
-            logger.error("Unsupported JWT: {}", e.getMessage());
+            logger.error("JWT token is unsupported: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            logger.error("Empty JWT claims: {}", e.getMessage());
+            logger.error("JWT claims string is empty: {}", e.getMessage());
+        } catch (SignatureException e) {
+            logger.error("Invalid JWT signature: {}", e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected JWT error: {}", e.getMessage(), e);
+            logger.error("Unexpected JWT validation error: {}", e.getMessage(), e);
         }
         return false;
     }
@@ -154,9 +180,24 @@ public class JwtUtil {
 
             logger.debug("Successfully extracted expiration date from JWT");
             return expiration;
+        } catch (MalformedJwtException e) {
+            logger.error("Invalid JWT token format while extracting expiration date: {}", e.getMessage());
+            throw new JwtAuthenticationException("Invalid JWT token format", e);
+        } catch (ExpiredJwtException e) {
+            logger.error("Expired JWT token while extracting expiration date: {}", e.getMessage());
+            throw new JwtAuthenticationException("JWT token is expired", e);
+        } catch (UnsupportedJwtException e) {
+            logger.error("Unsupported JWT token while extracting expiration date: {}", e.getMessage());
+            throw new JwtAuthenticationException("JWT token is unsupported", e);
+        } catch (IllegalArgumentException e) {
+            logger.error("JWT claims string is empty while extracting expiration date: {}", e.getMessage());
+            throw new JwtAuthenticationException("JWT claims string is empty", e);
+        } catch (SignatureException e) {
+            logger.error("Invalid JWT signature while extracting expiration date: {}", e.getMessage());
+            throw new JwtAuthenticationException("Invalid JWT signature", e);
         } catch (JwtException e) {
             logger.error("Error extracting expiration date: {}", e.getMessage());
-            throw e;
+            throw new JwtAuthenticationException("Failed to extract expiration date from JWT token", e);
         }
     }
 }
