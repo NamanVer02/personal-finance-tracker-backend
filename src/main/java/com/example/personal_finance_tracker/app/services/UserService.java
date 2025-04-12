@@ -1,7 +1,11 @@
 package com.example.personal_finance_tracker.app.services;
 
 import com.example.personal_finance_tracker.app.interfaces.UserInterface;
+import com.example.personal_finance_tracker.app.models.ERole;
+import com.example.personal_finance_tracker.app.models.Role;
 import com.example.personal_finance_tracker.app.models.User;
+import com.example.personal_finance_tracker.app.models.dto.RoleAssignmentDto;
+import com.example.personal_finance_tracker.app.repository.RoleRepo;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -12,11 +16,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
+
 
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,6 +35,9 @@ public class UserService implements UserInterface {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RoleRepo roleRepo;
 
     @Override
     public Optional<User> findByUsername(String username) {
@@ -248,5 +255,65 @@ public class UserService implements UserInterface {
             log.error("Error disabling 2FA for user ID: {}", id, e);
             throw new RuntimeException("Failed to disable two-factor authentication", e);
         }
+    }
+
+    @Transactional
+    public User assignRolesToUser(RoleAssignmentDto roleAssignmentDto) {
+        User user = userRepo.findById(roleAssignmentDto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + roleAssignmentDto.getUserId()));
+
+        Set<Role> roles = new HashSet<>();
+        for (String roleName : roleAssignmentDto.getRoleNames()) {
+            try {
+                ERole eRole = ERole.valueOf(roleName.toUpperCase());
+                Role role = roleRepo.findByName(eRole)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+                roles.add(role);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid role name: " + roleName);
+            }
+        }
+
+        user.setRoles(roles);
+        return userRepo.save(user);
+    }
+
+    @Transactional
+    public User addRoleToUser(Long userId, String roleName) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        try {
+            ERole eRole = ERole.valueOf(roleName.toUpperCase());
+            Role role = roleRepo.findByName(eRole)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+
+            user.getRoles().add(role);
+            return userRepo.save(user);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid role name: " + roleName);
+        }
+    }
+
+    @Transactional
+    public User removeRoleFromUser(Long userId, String roleName) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        try {
+            ERole eRole = ERole.valueOf(roleName.toUpperCase());
+            Role role = roleRepo.findByName(eRole)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+
+            user.getRoles().removeIf(r -> r.getName() == eRole);
+            return userRepo.save(user);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid role name: " + roleName);
+        }
+    }
+
+    public User getUserById(Long id) {
+        return userRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
     }
 }
