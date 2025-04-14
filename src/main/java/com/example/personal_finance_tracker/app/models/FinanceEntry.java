@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "finance_entries")
 @Loggable
-public class FinanceEntry {
+public class FinanceEntry extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
