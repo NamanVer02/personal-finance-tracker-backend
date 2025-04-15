@@ -129,7 +129,8 @@ public class AuthService implements AuthServiceInterface {
                                 userDetails.getUsername(),
                                 userDetails.getEmail(),
                                 roles,
-                                false);
+                                false,
+                                user.getProfileImage());
                         log.info("Authentication successful, returning JWT response for user: {}", loginRequest.getUsername());
                         return response;
                     } else {
@@ -142,7 +143,8 @@ public class AuthService implements AuthServiceInterface {
                                 userDetails.getUsername(),
                                 userDetails.getEmail(),
                                 null,
-                                true);
+                                true,
+                                user.getProfileImage());
                         log.info("Returning 2FA required JWT response for user: {}", loginRequest.getUsername());
                         return response;
                     }
@@ -182,7 +184,8 @@ public class AuthService implements AuthServiceInterface {
                             userDetails.getUsername(),
                             userDetails.getEmail(),
                             roles,
-                            false);
+                            false,
+                            user.getProfileImage());
                     log.info("Authentication successful, returning JWT response for user: {}", loginRequest.getUsername());
                     return response;
                 }
@@ -217,7 +220,7 @@ public class AuthService implements AuthServiceInterface {
     }
 
     @Override
-    public SignupResponse registerUser(SignUpRequest signupRequest) {
+    public SignupResponse registerUser(SignUpRequest signupRequest, String base64Image) {
         log.info("Registering new user with username: {}", signupRequest.getUsername());
         try {
             if (userService.existsByUsername(signupRequest.getUsername())) {
@@ -235,6 +238,7 @@ public class AuthService implements AuthServiceInterface {
             user.setUsername(signupRequest.getUsername());
             user.setEmail(signupRequest.getEmail());
             user.setPassword(encoder.encode(signupRequest.getPassword()));
+            user.setProfileImage(base64Image); // Set profile image
 
             Set<String> strRoles = signupRequest.getRoles();
             Set<Role> roles = new HashSet<>();
@@ -397,7 +401,8 @@ public class AuthService implements AuthServiceInterface {
                     user.getUsername(),
                     user.getEmail(),
                     roles,
-                    false);
+                    false,
+                    user.getProfileImage());
             log.info("2FA verification successful, returning JWT response for user: {}", verifyRequest.getUsername());
             return response;
         } catch (UsernameNotFoundException | BadCredentialsException e) {

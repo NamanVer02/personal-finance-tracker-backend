@@ -24,11 +24,25 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signupRequest) {
+    public ResponseEntity<?> registerUser(@Valid @ModelAttribute SignUpRequest signupRequest) {
         log.info("Registration attempt for username: {}", signupRequest.getUsername());
-        SignupResponse messageResponse = authService.registerUser(signupRequest);
-        log.info("Successful registration for username: {}", signupRequest.getUsername());
-        return ResponseEntity.ok(messageResponse);
+        try {
+            if (signupRequest.getProfileImage() != null && !signupRequest.getProfileImage().isEmpty()) {
+                byte[] imageBytes = signupRequest.getProfileImage().getBytes();
+                String base64Image = java.util.Base64.getEncoder().encodeToString(imageBytes);
+                signupRequest.setProfileImage(null);
+                SignupResponse messageResponse = authService.registerUser(signupRequest, base64Image);
+                log.info("Successful registration with profile image for username: {}", signupRequest.getUsername());
+                return ResponseEntity.ok(messageResponse);
+            } else {
+                SignupResponse messageResponse = authService.registerUser(signupRequest, null);
+                log.info("Successful registration without profile image for username: {}", signupRequest.getUsername());
+                return ResponseEntity.ok(messageResponse);
+            }
+        } catch (Exception e) {
+            log.error("Error during registration for username: {}", signupRequest.getUsername(), e);
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
     }
 
     @PostMapping("/2fa/setup")

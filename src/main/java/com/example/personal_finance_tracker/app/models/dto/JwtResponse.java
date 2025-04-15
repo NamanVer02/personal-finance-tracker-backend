@@ -18,9 +18,10 @@ public class JwtResponse {
     private String email;
     private List<String> roles;
     private boolean twoFactorRequired = false;
+    private String profileImage;
 
     // Constructor keeping backward compatibility
-    public JwtResponse(String accessToken, String refreshToken, Long id, String username, String email, List<String> roles, boolean twoFactorRequired) {
+    public JwtResponse(String accessToken, String refreshToken, Long id, String username, String email, List<String> roles, boolean twoFactorRequired, String profileImage) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.id = id;
@@ -28,5 +29,6 @@ public class JwtResponse {
         this.email = email;
         this.roles = roles;
         this.twoFactorRequired = twoFactorRequired;
+        this.profileImage = profileImage;
     }
 }

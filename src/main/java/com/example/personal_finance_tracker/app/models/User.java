@@ -77,6 +77,11 @@ public class User extends BaseEntity {
     private LocalDateTime lockTime;
     private LocalDateTime lastLoginDate;
 
+    @Column(columnDefinition = "LONGTEXT")
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    private String profileImage;
+
     public void updateLastLoginDate() {
         this.lastLoginDate = LocalDateTime.now();
     }
