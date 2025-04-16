@@ -11,6 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.Base64;
 
 @Slf4j
 @RestController
@@ -126,4 +130,40 @@ public class UserController {
                     .body("An error occurred while disabling 2FA");
         }
     }
+
+    @PutMapping("/{id}/profileImage")
+    public ResponseEntity<?> updateProfileImage(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        log.info("Profile image update request for user ID: {}", id);
+        try {
+            if (file.isEmpty()) {
+                log.warn("Empty file received for user ID: {}", id);
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Please select an image file"));
+            }
+
+            // Convert image to Base64
+            byte[] imageBytes = file.getBytes();
+            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+
+            // Update profile image through service
+            userService.updateProfileImage(id, base64Image);
+
+            log.info("Successfully updated profile image for user ID: {}", id);
+            // Return the new image as part of the response
+            return ResponseEntity.ok(new ProfileImageResponse(base64Image));
+
+        } catch (IOException e) {
+            log.error("File processing error for user ID {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Error processing image file"));
+        } catch (Exception e) {
+            log.error("Error updating profile image for user ID {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Error updating profile image"));
+        }
+    }
+
+
 }
