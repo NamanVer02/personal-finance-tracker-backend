@@ -1,4 +1,5 @@
-FROM ubuntu:latest
-LABEL authors="2011009"
-
-ENTRYPOINT ["top", "-b"]
+FROM eclipse-temurin:21-jdk-alpine
+VOLUME /tmp
+COPY target/*.jar app.jar
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+EXPOSE 8080
