@@ -40,3 +40,7 @@ build/
 /logs/application.log.2025-04-09.5.gz
 /logs/application.log.2025-04-09.6.gz
 /logs/application.log.2025-04-09.7.gz
+
+### SSL Cert ###
+/src/main/resources/springboot.crt
+/src/main/resources/springboot.p12
