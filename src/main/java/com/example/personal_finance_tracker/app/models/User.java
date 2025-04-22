@@ -76,6 +76,8 @@ public class User extends BaseEntity {
     private int failedAttempts;
     private LocalDateTime lockTime;
     private LocalDateTime lastLoginDate;
+    private boolean expired = false;
+    private LocalDateTime expirationDate;
 
     @Column(columnDefinition = "LONGTEXT")
     @Lob
@@ -87,11 +89,25 @@ public class User extends BaseEntity {
     }
 
     public boolean isAccountExpired() {
-        if (lastLoginDate == null) {
-            return false;
+        if (expired) {
+            return true;
         }
-
-        return LocalDateTime.now().isAfter(lastLoginDate.plusDays(30));
+        
+        if (expirationDate != null) {
+            return LocalDateTime.now().isAfter(expirationDate);
+        }
+        
+        return false;
+    }
+    
+    public void setAccountExpired(boolean expired) {
+        this.expired = expired;
+        if (expired) {
+            // Set expiration date to 7 days from now
+            this.expirationDate = LocalDateTime.now().plusDays(7);
+        } else {
+            this.expirationDate = null;
+        }
     }
 
     public boolean isAccountNonLocked() {

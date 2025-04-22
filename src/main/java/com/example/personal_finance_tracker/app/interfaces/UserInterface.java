@@ -19,4 +19,6 @@ public interface UserInterface {
     boolean updatePassword(Long id, String currentPassword, String newPassword);
     boolean deleteUser(Long id, String password);
     boolean disableTwoFactorAuth(Long id, String password);
+    User setAccountExpiration(Long userId, boolean expired);
+    void deleteExpiredAccounts();
 }

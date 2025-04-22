@@ -206,7 +206,7 @@ public class UserService implements UserInterface {
 
     @Transactional
     public boolean deleteUser(Long id, String password) {
-        log.info("Attempting to delete user ID: {}", id);
+        log.info("Attempting to delete user with ID: {}", id);
         try {
             Optional<User> userOpt = userRepo.findById(id);
 
@@ -215,16 +215,62 @@ public class UserService implements UserInterface {
                 log.info("User found for deletion: {}", user.getUsername());
 
                 if (passwordEncoder.matches(password, user.getPassword())) {
-                    log.info("Password verified, deleting user: {}", user.getUsername());
+                    log.info("Password verified for user deletion: {}", user.getUsername());
                     userRepo.delete(user);
                     return true;
                 }
-                log.info("Password verification failed during deletion attempt for user: {}", user.getUsername());
+                log.info("Password verification failed for user deletion: {}", user.getUsername());
             }
             return false;
         } catch (Exception e) {
-            log.error("Error deleting user ID: {}", id, e);
+            log.error("Error deleting user with ID: {}", id, e);
             throw new RuntimeException("Failed to delete user", e);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public User setAccountExpiration(Long userId, boolean expired) {
+        log.info("Setting account expiration status to {} for user ID: {}", expired, userId);
+        try {
+            User user = userRepo.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+            
+            user.setAccountExpired(expired);
+            userRepo.save(user);
+            
+            log.info("Successfully set account expiration for user: {}", user.getUsername());
+            return user;
+        } catch (ResourceNotFoundException e) {
+            log.error("User not found for setting expiration: {}", userId);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error setting account expiration for user ID: {}", userId, e);
+            throw new RuntimeException("Failed to set account expiration", e);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void deleteExpiredAccounts() {
+        log.info("Checking for expired accounts to delete");
+        try {
+            List<User> users = userRepo.findAll();
+            int deletedCount = 0;
+            
+            for (User user : users) {
+                if (user.isAccountExpired() && user.getExpirationDate() != null 
+                        && LocalDateTime.now().isAfter(user.getExpirationDate())) {
+                    log.info("Deleting expired account: {}", user.getUsername());
+                    userRepo.delete(user);
+                    deletedCount++;
+                }
+            }
+            
+            log.info("Deleted {} expired accounts", deletedCount);
+        } catch (Exception e) {
+            log.error("Error deleting expired accounts", e);
+            throw new RuntimeException("Failed to delete expired accounts", e);
         }
     }
 

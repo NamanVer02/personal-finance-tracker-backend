@@ -55,4 +55,18 @@ public class RoleManagementController {
         User user = userService.getUserById(userId);
         return ResponseEntity.ok(user);
     }
+    
+    @PutMapping("/{userId}/expire")
+    public ResponseEntity<User> expireAccount(@PathVariable Long userId) {
+        log.info("Request to expire account for user ID: {}", userId);
+        User updatedUser = userService.setAccountExpiration(userId, true);
+        return ResponseEntity.ok(updatedUser);
+    }
+    
+    @PutMapping("/{userId}/unexpire")
+    public ResponseEntity<User> unexpireAccount(@PathVariable Long userId) {
+        log.info("Request to unexpire account for user ID: {}", userId);
+        User updatedUser = userService.setAccountExpiration(userId, false);
+        return ResponseEntity.ok(updatedUser);
+    }
 }
