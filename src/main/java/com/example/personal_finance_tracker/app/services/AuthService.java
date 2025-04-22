@@ -223,6 +223,47 @@ public class AuthService implements AuthServiceInterface {
     public SignupResponse registerUser(SignUpRequest signupRequest, String base64Image) {
         log.info("Registering new user with username: {}", signupRequest.getUsername());
         try {
+            // Username validation
+            String username = signupRequest.getUsername();
+            if (username == null || username.trim().length() < 3) {
+                log.warn("Registration failed: Username too short '{}'", username);
+                throw new RuntimeException("Username must be at least 3 characters long");
+            }
+            if (!username.matches("^[a-zA-Z0-9_]+$")) {
+                log.warn("Registration failed: Username invalid '{}'", username);
+                throw new RuntimeException("Username can only contain letters, numbers, and underscores");
+            }
+
+            // Email validation
+            String email = signupRequest.getEmail();
+            if (email == null || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                log.warn("Registration failed: Email invalid '{}'", email);
+                throw new RuntimeException("Please enter a valid email address");
+            }
+
+            // Password validation
+            String password = signupRequest.getPassword();
+            if (password == null || password.length() < 8) {
+                log.warn("Registration failed: Password too short for '{}'", username);
+                throw new RuntimeException("Password must be at least 8 characters");
+            }
+            if (!password.matches(".*[A-Z].*")) {
+                log.warn("Registration failed: Password missing uppercase for '{}'", username);
+                throw new RuntimeException("Must contain one uppercase letter");
+            }
+            if (!password.matches(".*[a-z].*")) {
+                log.warn("Registration failed: Password missing lowercase for '{}'", username);
+                throw new RuntimeException("Must contain one lowercase letter");
+            }
+            if (!password.matches(".*\\d.*")) {
+                log.warn("Registration failed: Password missing number for '{}'", username);
+                throw new RuntimeException("Must contain one number");
+            }
+            if (!password.matches(".*[!@#$%^&*].*")) {
+                log.warn("Registration failed: Password missing special character for '{}'", username);
+                throw new RuntimeException("Must contain one special character (!@#$%^&*)");
+            }
+
             if (userService.existsByUsername(signupRequest.getUsername())) {
                 log.warn("Registration failed: Username already taken for username: {}", signupRequest.getUsername());
                 throw new RuntimeException("Error: Username is already taken!");
