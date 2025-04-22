@@ -68,6 +68,12 @@ public class AuthService implements AuthServiceInterface {
         try {
             User user = userRepo.findByUsername(loginRequest.getUsername()).orElse(null);
 
+            // Check if account is expired before authentication
+            if (user != null && user.isAccountExpired()) {
+                log.warn("Account is expired for user: {}", loginRequest.getUsername());
+                throw new BadCredentialsException("Your account has expired. Please contact the admin to reactivate your account.");
+            }
+
             // First authenticate with username and password
             try {
                 Authentication authentication = authenticationManager.authenticate(
