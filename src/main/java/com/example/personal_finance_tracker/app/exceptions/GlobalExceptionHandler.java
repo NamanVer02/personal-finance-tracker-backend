@@ -60,7 +60,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
     public ResponseEntity<Object> handleAuthenticationFailure(Exception ex) {
-        return buildErrorResponse("Invalid username or password", "Authentication Error", HttpStatus.UNAUTHORIZED);
+        String message = ex.getMessage() != null ? ex.getMessage() : "Invalid username or password";
+        return buildErrorResponse(message, "Authentication Error", HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(LockedException.class)
