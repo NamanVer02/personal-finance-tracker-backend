@@ -65,6 +65,7 @@ public class AuthService implements AuthServiceInterface {
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
         log.info("Authenticating user: {}", loginRequest.getUsername());
+        
         try {
             User user = userRepo.findByUsername(loginRequest.getUsername()).orElse(null);
 
