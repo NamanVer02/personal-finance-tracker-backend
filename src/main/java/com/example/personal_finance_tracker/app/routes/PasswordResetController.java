@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.routes;
 
+import com.example.personal_finance_tracker.app.models.dto.CheckResetPassword;
 import com.example.personal_finance_tracker.app.models.dto.ResetPasswordRequest;
 import com.example.personal_finance_tracker.app.services.PasswordResetService;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +21,9 @@ public class PasswordResetController {
     private final PasswordResetService passwordResetService;
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ResetPasswordRequest resetPasswordRequest) {
+    public ResponseEntity<?> forgotPassword(@RequestBody CheckResetPassword checkResetPassword) {
         log.info("Password reset request received");
-        boolean initiated = passwordResetService.initiatePasswordReset(resetPasswordRequest.getNewPassword());
+        boolean initiated = passwordResetService.initiatePasswordReset(checkResetPassword.getUsername());
         log.debug("Initiation status: {}", initiated);
         return ResponseEntity.ok(Map.of("message", "If your username is registered, you will receive instructions"));
     }
