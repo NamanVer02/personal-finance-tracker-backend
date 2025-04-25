@@ -75,6 +75,12 @@ public class AuthService implements AuthServiceInterface {
                 throw new BadCredentialsException("Your account has expired. Please contact the admin to reactivate your account.");
             }
 
+            if (user != null && user.getFailedAttempts() > 5) {
+                userService.lockUser(user);
+                log.warn("Account is locked for user: {}", loginRequest.getUsername());
+                throw new LockedException("Your account is locked for 10mins for user: " + loginRequest.getUsername());
+            }
+
             // First authenticate with username and password
             try {
                 Authentication authentication = authenticationManager.authenticate(
