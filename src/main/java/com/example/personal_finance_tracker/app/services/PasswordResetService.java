@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.services;
 
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.models.dto.ResetPasswordRequest;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
@@ -26,7 +27,8 @@ public class PasswordResetService {
             Optional<User> optionalUser = userRepo.findByUsername(username);
             boolean userExists = optionalUser.isPresent();
             log.info("User existence check result: {}", userExists);
-            return userExists;
+            if (!userExists) throw new ResourceNotFoundException("No user exists with this username: " + username);
+            return true;
         } catch (DataAccessException e) {
             log.error("Error initiating password reset for username: {}", username, e);
             throw new RuntimeException("Failed to initiate password reset", e);

@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<Object> handleAccountLocked(LockedException ex) {
-        return buildErrorResponse("Account is locked", "Authentication Error", HttpStatus.UNAUTHORIZED);
+        return buildErrorResponse("Account is locked for 10mins", "Authentication Error", HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler({MalformedJwtException.class, SignatureException.class})

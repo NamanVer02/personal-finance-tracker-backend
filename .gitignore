@@ -44,3 +44,4 @@ build/
 ### SSL Cert ###
 /src/main/resources/springboot.crt
 /src/main/resources/springboot.p12
+/src/main/resources/springboot.key
