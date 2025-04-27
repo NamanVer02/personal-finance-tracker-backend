@@ -12,6 +12,10 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,10 +42,17 @@ public class UserService implements UserInterface {
     private RoleRepo roleRepo;
 
     @Override
+    @Cacheable(value = "userByUsername", key = "#username", unless = "#result == null")
     public Optional<User> findByUsername(String username) {
-        log.info("Searching for user with username: {}", username);
+        log.info("Cache MISS for userByUsername: {}", username);
         try {
-            return userRepo.findByUsername(username);
+            Optional<User> result = userRepo.findByUsername(username);
+            if (result.isPresent()) {
+                log.info("Found user by username: {} in database", username);
+            } else {
+                log.info("User with username: {} not found in database", username);
+            }
+            return result;
         } catch (Exception e) {
             log.error("Error finding user by username: {}", username, e);
             throw new RuntimeException("Failed to find user by username", e);
@@ -49,10 +60,17 @@ public class UserService implements UserInterface {
     }
 
     @Override
+    @Cacheable(value = "userById", key = "#id", unless = "#result == null")
     public Optional<User> findById(Long id) {
-        log.info("Looking up user by ID: {}", id);
+        log.info("Cache MISS for userById: {}", id);
         try {
-            return userRepo.findById(id);
+            Optional<User> result = userRepo.findById(id);
+            if (result.isPresent()) {
+                log.info("Found user by ID: {} in database", id);
+            } else {
+                log.info("User with ID: {} not found in database", id);
+            }
+            return result;
         } catch (Exception e) {
             log.error("Error finding user by ID: {}", id, e);
             throw new RuntimeException("Failed to find user by ID", e);
@@ -82,8 +100,16 @@ public class UserService implements UserInterface {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "userById", key = "#user.id", condition = "#user.id != null"),
+            @CacheEvict(value = "userByUsername", key = "#user.username"),
+            @CacheEvict(value = "allUsers", allEntries = true),
+            @CacheEvict(value = "usernameById", key = "#user.id", condition = "#user.id != null"),
+            @CacheEvict(value = "userIdByUsername", key = "#user.username"),
+            @CacheEvict(value = "userAuthorities", allEntries = true)
+    })
     public void save(User user) {
-        log.info("Saving user with username: {}", user.getUsername());
+        log.info("Saving user with username: {} and evicting related caches", user.getUsername());
         try {
             userRepo.save(user);
         } catch (Exception e) {
@@ -93,10 +119,13 @@ public class UserService implements UserInterface {
     }
 
     @Override
+    @Cacheable(value = "allUsers")
     public List<User> getAllUsers() {
-        log.info("Retrieving all users");
+        log.info("Cache MISS for allUsers - retrieving all users from database");
         try {
-            return userRepo.findAll();
+            List<User> users = userRepo.findAll();
+            log.info("Successfully retrieved {} users from database", users.size());
+            return users;
         } catch (Exception e) {
             log.error("Error retrieving all users", e);
             throw new RuntimeException("Failed to retrieve all users", e);
@@ -104,11 +133,14 @@ public class UserService implements UserInterface {
     }
 
     @Override
+    @Cacheable(value = "usernameById", key = "#userId", unless = "#result == 'Unknown'")
     public String getUsernameByUserId(Long userId) {
-        log.info("Getting username for user ID: {}", userId);
+        log.info("Cache MISS for usernameById: {}", userId);
         try {
             User user = userRepo.findById(userId).orElse(null);
-            return (user != null) ? user.getUsername() : "Unknown";
+            String username = (user != null) ? user.getUsername() : "Unknown";
+            log.info("Retrieved username: {} for user ID: {} from database", username, userId);
+            return username;
         } catch (Exception e) {
             log.error("Error getting username for user ID: {}", userId, e);
             throw new RuntimeException("Failed to get username by user ID", e);
@@ -116,23 +148,29 @@ public class UserService implements UserInterface {
     }
 
     @Override
+    @Cacheable(value = "userIdByUsername", key = "#username", unless = "#result == null")
     public Long getUserIdByUsername(String username) {
-        log.info("Getting user ID for username: {}", username);
+        log.info("Cache MISS for userIdByUsername: {}", username);
         try {
             User user = userRepo.findByUsername(username).orElse(null);
-            return user != null ? user.getId() : null;
+            Long userId = user != null ? user.getId() : null;
+            log.info("Retrieved user ID: {} for username: {} from database", userId, username);
+            return userId;
         } catch (Exception e) {
             log.error("Error getting user ID for username: {}", username, e);
             throw new RuntimeException("Failed to get user ID by username", e);
         }
     }
 
+    @Cacheable(value = "userAuthorities", key = "#user.username")
     public Collection<? extends GrantedAuthority> getUserAuthorities(User user) {
-        log.info("Retrieving authorities for user: {}", user.getUsername());
+        log.info("Cache MISS for userAuthorities: {}", user.getUsername());
         try {
-            return user.getRoles().stream()
+            Collection<? extends GrantedAuthority> authorities = user.getRoles().stream()
                     .map(role -> new SimpleGrantedAuthority(role.getName().name()))
                     .collect(Collectors.toList());
+            log.info("Retrieved {} authorities for user: {} from database", authorities.size(), user.getUsername());
+            return authorities;
         } catch (Exception e) {
             log.error("Error retrieving authorities for user: {}", user.getUsername(), e);
             throw new RuntimeException("Failed to get user authorities", e);
@@ -140,8 +178,13 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "userById", key = "#user.id"),
+            @CacheEvict(value = "userByUsername", key = "#user.username"),
+            @CacheEvict(value = "userAuthorities", key = "#user.username")
+    })
     public void incrementFailedAttempts(User user) {
-        log.info("Incrementing failed attempts for user: {}", user.getUsername());
+        log.info("Incrementing failed attempts for user: {} and evicting related caches", user.getUsername());
         try {
             int newFailedAttempts = user.getFailedAttempts() + 1;
             userRepo.updateFailedAttempts(newFailedAttempts, user.getUsername());
@@ -152,8 +195,9 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @CacheEvict(value = "userByUsername", key = "#username")
     public void resetFailedAttempts(String username) {
-        log.info("Resetting failed attempts for user: {}", username);
+        log.info("Resetting failed attempts for user: {} and evicting from cache", username);
         try {
             userRepo.updateFailedAttempts(0, username);
         } catch (Exception e) {
@@ -163,8 +207,9 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @CacheEvict(value = "userByUsername", key = "#user.username")
     public void lockUser(User user) {
-        log.info("Locking user account: {}", user.getUsername());
+        log.info("Locking user account: {} and evicting from cache", user.getUsername());
         try {
             userRepo.lockUser(LocalDateTime.now(), user.getUsername());
         } catch (Exception e) {
@@ -180,8 +225,13 @@ public class UserService implements UserInterface {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "userById", key = "#id"),
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "allUsers", allEntries = true)
+    })
     public boolean updatePassword(Long id, String currentPassword, String newPassword) {
-        log.info("Attempting password update for user ID: {}", id);
+        log.info("Attempting password update for user ID: {} and evicting related caches", id);
         try {
             Optional<User> userOpt = userRepo.findById(id);
 
@@ -205,8 +255,16 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "userById", key = "#id"),
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "allUsers", allEntries = true),
+            @CacheEvict(value = "usernameById", key = "#id"),
+            @CacheEvict(value = "userIdByUsername", allEntries = true),
+            @CacheEvict(value = "userAuthorities", allEntries = true)
+    })
     public boolean deleteUser(Long id, String password) {
-        log.info("Attempting to delete user with ID: {}", id);
+        log.info("Attempting to delete user with ID: {} and evicting all related caches", id);
         try {
             Optional<User> userOpt = userRepo.findById(id);
 
@@ -227,18 +285,24 @@ public class UserService implements UserInterface {
             throw new RuntimeException("Failed to delete user", e);
         }
     }
-    
+
     @Override
     @Transactional
+    @Caching(put = {
+            @CachePut(value = "userById", key = "#userId", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "allUsers", allEntries = true)
+    })
     public User setAccountExpiration(Long userId, boolean expired) {
-        log.info("Setting account expiration status to {} for user ID: {}", expired, userId);
+        log.info("Setting account expiration status to {} for user ID: {} and updating caches", expired, userId);
         try {
             User user = userRepo.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-            
+
             user.setAccountExpired(expired);
             userRepo.save(user);
-            
+
             log.info("Successfully set account expiration for user: {}", user.getUsername());
             return user;
         } catch (ResourceNotFoundException e) {
@@ -249,24 +313,25 @@ public class UserService implements UserInterface {
             throw new RuntimeException("Failed to set account expiration", e);
         }
     }
-    
+
     @Override
     @Transactional
+    @CacheEvict(value = {"userById", "userByUsername", "allUsers", "usernameById", "userIdByUsername", "userAuthorities"}, allEntries = true)
     public void deleteExpiredAccounts() {
-        log.info("Checking for expired accounts to delete");
+        log.info("Checking for expired accounts to delete and evicting all caches");
         try {
             List<User> users = userRepo.findAll();
             int deletedCount = 0;
-            
+
             for (User user : users) {
-                if (user.isAccountExpired() && user.getExpirationDate() != null 
+                if (user.isAccountExpired() && user.getExpirationDate() != null
                         && LocalDateTime.now().isAfter(user.getExpirationDate())) {
                     log.info("Deleting expired account: {}", user.getUsername());
                     userRepo.delete(user);
                     deletedCount++;
                 }
             }
-            
+
             log.info("Deleted {} expired accounts", deletedCount);
         } catch (Exception e) {
             log.error("Error deleting expired accounts", e);
@@ -276,8 +341,13 @@ public class UserService implements UserInterface {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "userById", key = "#id"),
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "userAuthorities", allEntries = true)
+    })
     public boolean disableTwoFactorAuth(Long id, String password) {
-        log.info("Attempting to disable 2FA for user ID: {}", id);
+        log.info("Attempting to disable 2FA for user ID: {} and evicting related caches", id);
         try {
             Optional<User> userOpt = userRepo.findById(id);
 
@@ -302,7 +372,14 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @Caching(put = {
+            @CachePut(value = "userById", key = "#roleAssignmentDto.userId", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "userAuthorities", allEntries = true)
+    })
     public User assignRolesToUser(RoleAssignmentDto roleAssignmentDto) {
+        log.info("Assigning roles to user ID: {} and updating caches", roleAssignmentDto.getUserId());
         User user = userRepo.findById(roleAssignmentDto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + roleAssignmentDto.getUserId()));
 
@@ -323,7 +400,14 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @Caching(put = {
+            @CachePut(value = "userById", key = "#userId", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "userAuthorities", allEntries = true)
+    })
     public User addRoleToUser(Long userId, String roleName) {
+        log.info("Adding role {} to user ID: {} and updating caches", roleName, userId);
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
@@ -340,7 +424,14 @@ public class UserService implements UserInterface {
     }
 
     @Transactional
+    @Caching(put = {
+            @CachePut(value = "userById", key = "#userId", unless = "#result == null")
+    }, evict = {
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "userAuthorities", allEntries = true)
+    })
     public User removeRoleFromUser(Long userId, String roleName) {
+        log.info("Removing role {} from user ID: {} and updating caches", roleName, userId);
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
@@ -356,17 +447,54 @@ public class UserService implements UserInterface {
         }
     }
 
+    @Cacheable(value = "userById", key = "#id", unless = "#result == null")
     public User getUserById(Long id) {
-        return userRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        log.info("Cache MISS for userById: {}", id);
+        try {
+            User user = userRepo.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+            log.info("Retrieved user by ID: {} from database", id);
+            return user;
+        } catch (ResourceNotFoundException e) {
+            log.error("User not found with ID: {}", id);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error getting user by ID: {}", id, e);
+            throw new RuntimeException("Failed to get user by ID", e);
+        }
     }
 
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "userById", key = "#userId"),
+            @CacheEvict(value = "userByUsername", allEntries = true),
+            @CacheEvict(value = "allUsers", allEntries = true)
+    })
     public void updateProfileImage(Long userId, String base64Image) {
-        User user = userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        user.setProfileImage(base64Image);
-        userRepo.save(user);
+        log.info("Updating profile image for user ID: {} and evicting related caches", userId);
+        try {
+            User user = userRepo.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            user.setProfileImage(base64Image);
+            userRepo.save(user);
+            log.info("Successfully updated profile image for user ID: {}", userId);
+        } catch (Exception e) {
+            log.error("Error updating profile image for user ID: {}", userId, e);
+            throw new RuntimeException("Failed to update profile image", e);
+        }
     }
 
+    // This method can be added to show cache hits explicitly
+    @Cacheable(value = "userById", key = "#id", unless = "#result == null")
+    public User getUserByIdWithLogging(Long id) {
+        // This code block only executes on cache miss
+        log.info("Cache MISS for userById: {}", id);
+        try {
+            return userRepo.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        } catch (Exception e) {
+            log.error("Error getting user by ID: {}", id, e);
+            throw new RuntimeException("Failed to get user by ID", e);
+        }
+    }
 }
