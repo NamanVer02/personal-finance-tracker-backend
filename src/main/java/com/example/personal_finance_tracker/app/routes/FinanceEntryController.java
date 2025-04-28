@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -243,7 +244,7 @@ public class FinanceEntryController {
     }
 
     @PostMapping("/admin/search")
-    public ResponseEntity<Page<FinanceEntry>> searchFinanceEntriesAdmin(
+    public ResponseEntity<?> searchFinanceEntriesAdmin(
             @RequestParam(required = false) Long id,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String category,
@@ -254,9 +255,11 @@ public class FinanceEntryController {
             @RequestParam(required = false) String searchTerm,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "date,desc") String[] sort) {
-        log.info("Entering searchFinanceEntriesAdmin method with parameters: id={}, type={}, category={}, minAmount={}, maxAmount={}, startDate={}, endDate={}, searchTerm={}, page={}, size={}, sort={}",
-                id, type, category, minAmount, maxAmount, startDate, endDate, searchTerm, page, size, sort);
+            @RequestParam(defaultValue = "date,desc") String[] sort,
+            @RequestParam(defaultValue = "false") boolean transposed) {
+
+        log.info("Entering searchFinanceEntriesAdmin method with parameters: id={}, type={}, category={}, minAmount={}, maxAmount={}, startDate={}, endDate={}, searchTerm={}, page={}, size={}, sort={}, transposed={}",
+                id, type, category, minAmount, maxAmount, startDate, endDate, searchTerm, page, size, sort, transposed);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(createSortOrder(sort)));
 
@@ -281,11 +284,73 @@ public class FinanceEntryController {
                 pageable
         );
 
+        if (transposed) {
+            Map<String, Object> transposedData = transposeFinanceEntries(entries.getContent());
+            // Add pagination metadata
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("count", entries.getTotalElements());
+            metadata.put("page", page);
+            metadata.put("size", size);
+            metadata.put("totalPages", entries.getTotalPages());
+            transposedData.put("metadata", metadata);
+            return ResponseEntity.ok(transposedData);
+        }
+
         log.info("Exiting searchFinanceEntriesAdmin method with page of entries. Count: {}", entries.getTotalElements());
         return ResponseEntity.ok(entries);
     }
 
-    private Sort.Order[] createSortOrder(String[] sort) {
+
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            return userDetails.getId();
+        }
+        throw new IllegalStateException("User not authenticated");
+    }
+
+    private Map<String, Object> transposeFinanceEntries(List<FinanceEntry> entries) {
+        Map<String, Object> transposedData = new HashMap<>();
+
+        // Create lists for each field
+        List<Long> ids = new ArrayList<>();
+        List<String> types = new ArrayList<>();
+        List<String> categories = new ArrayList<>();
+        List<Double> amounts = new ArrayList<>();
+        List<LocalDate> dates = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        List<Long> userIds = new ArrayList<>();
+
+        // Populate the lists
+        for (FinanceEntry entry : entries) {
+            ids.add(entry.getId());
+            types.add(entry.getType());
+            categories.add(entry.getCategory());
+            amounts.add(entry.getAmount());
+            dates.add(entry.getDate());
+            userIds.add(entry.getUserId());
+            labels.add(entry.getLabel());
+        }
+
+        // Add the lists to the map
+        transposedData.put("ids", ids);
+        transposedData.put("types", types);
+        transposedData.put("categories", categories);
+        transposedData.put("amounts", amounts);
+        transposedData.put("dates", dates);
+        transposedData.put("labels", labels);
+        transposedData.put("userIds", userIds);
+
+        // Add pagination metadata
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("count", entries.size());
+        transposedData.put("metadata", metadata);
+
+        return transposedData;
+    }
+
+    private List<Sort.Order> createSortOrder(String[] sort) {
         List<Sort.Order> orders = new ArrayList<>();
 
         if (sort[0].contains(",")) {
@@ -307,15 +372,6 @@ public class FinanceEntryController {
             ));
         }
 
-        return orders.toArray(new Sort.Order[0]);
-    }
-
-    private Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-            return userDetails.getId();
-        }
-        throw new IllegalStateException("User not authenticated");
+        return orders;
     }
 }
