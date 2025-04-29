@@ -35,6 +35,9 @@ public class CsvImportService {
 
     private static final int BATCH_SIZE = 1000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final String[] REQUIRED_HEADERS = {
+            "ID", "Label", "Amount", "Type", "Category", "Date", "Username"
+    };
 
     @Transactional
     public List<FinanceEntry> importCsvEntries(MultipartFile file, Long userId) throws IOException {
@@ -57,6 +60,8 @@ public class CsvImportService {
                     .withFirstRecordAsHeader()
                     .withIgnoreHeaderCase()
                     .withTrim());
+
+            validateCsvHeaders(csvParser);
 
             Iterable<CSVRecord> records = csvParser;
             for (CSVRecord record : records) {
@@ -123,6 +128,20 @@ public class CsvImportService {
         if (file.getSize() > 100 * 1024 * 1024) {
             log.error("File size exceeded: {} bytes", file.getSize());
             throw new IllegalArgumentException("File size exceeds 100MB limit");
+        }
+    }
+
+    private void validateCsvHeaders(CSVParser csvParser) {
+        List<String> actualHeaders = csvParser.getHeaderNames();
+        if (actualHeaders.size() != REQUIRED_HEADERS.length) {
+            throw new IllegalArgumentException("CSV header does not match the required format. " +
+                    "Expected headers: " + String.join(",", REQUIRED_HEADERS));
+        }
+        for (int i = 0; i < REQUIRED_HEADERS.length; i++) {
+            if (!REQUIRED_HEADERS[i].equalsIgnoreCase(actualHeaders.get(i))) {
+                throw new IllegalArgumentException("CSV header does not match the required format. " +
+                        "Expected headers: " + String.join(",", REQUIRED_HEADERS));
+            }
         }
     }
 }
