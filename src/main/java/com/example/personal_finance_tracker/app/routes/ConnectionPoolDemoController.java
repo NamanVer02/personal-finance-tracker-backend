@@ -25,19 +25,20 @@ public class ConnectionPoolDemoController {
 
     private final ConnectionDemoService demoService;
     private final DataSource dataSource;
+    private static final String MESSAGE = "status";
 
     @GetMapping("/connection-reuse")
     public Map<String, String> demonstrateConnectionReuse() {
         log.info("Starting connection reuse demonstration");
         demoService.demonstrateConnectionReuse();
-        return Collections.singletonMap("status", "Connection reuse demonstration completed");
+        return Collections.singletonMap(MESSAGE, "Connection reuse demonstration completed");
     }
 
     @GetMapping("/multiple-connections")
     public Map<String, String> demonstrateMultipleConnections(@RequestParam(defaultValue = "15") int count) {
         log.info("Starting multiple connections demonstration with {} queries", count);
         demoService.demonstrateMultipleConnections(count);
-        return Collections.singletonMap("status", "Multiple connections demonstration completed with " + count + " queries");
+        return Collections.singletonMap(MESSAGE, "Multiple connections demonstration completed with " + count + " queries");
     }
 
     @GetMapping("/pool-stats")
@@ -64,6 +65,6 @@ public class ConnectionPoolDemoController {
     public Map<String, String> resetDemo() {
         LogCollector.clearLogs();
         log.info("Connection pool demo reset");
-        return Collections.singletonMap("status", "Demo reset successfully");
+        return Collections.singletonMap(MESSAGE, "Demo reset successfully");
     }
 }

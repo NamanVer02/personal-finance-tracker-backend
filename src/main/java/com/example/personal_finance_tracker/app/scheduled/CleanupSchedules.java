@@ -4,7 +4,6 @@ import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.repository.TokenRegistryRepository;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -15,11 +14,14 @@ import java.util.List;
 @Slf4j
 @Component
 public class CleanupSchedules {
-    @Autowired
-    private UserRepo userRepository;
 
-    @Autowired
-    private TokenRegistryRepository blacklistedTokenRepo;
+    private final UserRepo userRepository;
+    private final TokenRegistryRepository blacklistedTokenRepo;
+
+    public CleanupSchedules (UserRepo userRepository, TokenRegistryRepository blacklistedTokenRepo) {
+        this.userRepository = userRepository;
+        this.blacklistedTokenRepo = blacklistedTokenRepo;
+    }
 
     @Scheduled(fixedRate = 60000) // Run every minute
     public void unlockAccounts() {

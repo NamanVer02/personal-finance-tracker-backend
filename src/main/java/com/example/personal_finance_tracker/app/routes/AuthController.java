@@ -4,7 +4,6 @@ import com.example.personal_finance_tracker.app.models.dto.*;
 import com.example.personal_finance_tracker.app.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,11 +11,15 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 @Slf4j
 public class AuthController {
-    @Autowired
-    private AuthService authService;
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<JwtResponse> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         log.info("Authentication attempt for username: {}", loginRequest.getUsername());
         JwtResponse jwtResponse = authService.authenticateUser(loginRequest);
         log.info("Successful authentication for username: {}", loginRequest.getUsername());
@@ -46,7 +49,7 @@ public class AuthController {
     }
 
     @PostMapping("/2fa/setup")
-    public ResponseEntity<?> setup2FA(@RequestParam String username) {
+    public ResponseEntity<TwoFactorSetupResponse> setup2FA(@RequestParam String username) {
         log.info("2FA setup request for username: {}", username);
         TwoFactorSetupResponse setupResponse = authService.setup2FA(username);
         log.info("2FA setup completed for username: {}", username);
@@ -54,7 +57,7 @@ public class AuthController {
     }
 
     @PostMapping("/2fa/verify")
-    public ResponseEntity<?> verify2FA(@RequestBody TwoFactorVerifyRequest verifyRequest) {
+    public ResponseEntity<JwtResponse> verify2FA(@RequestBody TwoFactorVerifyRequest verifyRequest) {
         log.info("2FA verification attempt for username: {}", verifyRequest.getUsername());
         JwtResponse jwtResponse = authService.verify2FA(verifyRequest);
         log.info("Successful 2FA verification for username: {}", verifyRequest.getUsername());
@@ -62,7 +65,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logoutUser(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<MessageResponse> logoutUser(@RequestHeader("Authorization") String token) {
         String jwtToken = token.substring(7);
         log.info("Logout request received for token (truncated): {}...", jwtToken.substring(0, Math.min(10, jwtToken.length())));
         authService.logout(jwtToken);
@@ -71,7 +74,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+    public ResponseEntity<TokenRefreshResponse> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         log.info("Token refresh request received");
         TokenRefreshResponse response = authService.refreshToken(request.getRefreshToken());
         log.info("Token refresh completed successfully");

@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -33,7 +32,7 @@ public class CategoryController {
         log.info("Entering getExpenseCategories method");
         List<Category> expenseCategories = categoryService.findAll().stream()
                 .filter(category -> "Expense".equals(category.getType()))
-                .collect(Collectors.toList());
+                .toList();
         log.info("Exiting getExpenseCategories method with {} categories", expenseCategories.size());
         return ResponseEntity.ok(expenseCategories);
     }
@@ -43,7 +42,7 @@ public class CategoryController {
         log.info("Entering getIncomeCategories method");
         List<Category> incomeCategories = categoryService.findAll().stream()
                 .filter(category -> "Income".equals(category.getType()))
-                .collect(Collectors.toList());
+                .toList();
         log.info("Exiting getIncomeCategories method with {} categories", incomeCategories.size());
         return ResponseEntity.ok(incomeCategories);
     }

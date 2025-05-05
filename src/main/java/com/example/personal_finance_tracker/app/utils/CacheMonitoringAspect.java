@@ -15,13 +15,14 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class CacheMonitoringAspect {
+    private static final String DEFAULT = "default";
 
     @Around("@annotation(org.springframework.cache.annotation.Cacheable)")
     public Object logCacheableOperation(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Cacheable cacheable = signature.getMethod().getAnnotation(Cacheable.class);
 
-        String cacheName = cacheable.value().length > 0 ? cacheable.value()[0] : "default";
+        String cacheName = cacheable.value().length > 0 ? cacheable.value()[0] : DEFAULT;
         String key = generateKeyString(joinPoint.getArgs());
 
         long startTime = System.currentTimeMillis();
@@ -45,7 +46,8 @@ public class CacheMonitoringAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         CacheEvict cacheEvict = signature.getMethod().getAnnotation(CacheEvict.class);
 
-        String cacheName = cacheEvict.value().length > 0 ? cacheEvict.value()[0] : "default";
+
+        String cacheName = cacheEvict.value().length > 0 ? cacheEvict.value()[0] : DEFAULT;
         String key = cacheEvict.allEntries() ? "ALL" : generateKeyString(joinPoint.getArgs());
 
         log.info("Cache EVICT for {}: key={}", cacheName, key);
@@ -60,7 +62,7 @@ public class CacheMonitoringAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         CachePut cachePut = signature.getMethod().getAnnotation(CachePut.class);
 
-        String cacheName = cachePut.value().length > 0 ? cachePut.value()[0] : "default";
+        String cacheName = cachePut.value().length > 0 ? cachePut.value()[0] : DEFAULT;
         String key = generateKeyString(joinPoint.getArgs());
 
         log.info("Cache PUT for {}: key={}", cacheName, key);

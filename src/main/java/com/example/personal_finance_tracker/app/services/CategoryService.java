@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.services;
 
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.example.personal_finance_tracker.app.models.Category;
 import com.example.personal_finance_tracker.app.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ public class CategoryService {
             return categoryRepository.findAll();
         } catch (DataAccessException e) {
             log.error("Error retrieving all categories", e);
-            throw new RuntimeException("Failed to retrieve categories", e);
+            throw new ResourceNotFoundException("Failed to retrieve categories");
         }
     }
 
@@ -34,7 +35,7 @@ public class CategoryService {
             return categoryRepository.findById(id);
         } catch (DataAccessException e) {
             log.error("Error finding category by ID: {}", id, e);
-            throw new RuntimeException("Failed to find category by ID", e);
+            throw new ResourceNotFoundException("Failed to find category by ID");
         }
     }
 
@@ -44,7 +45,7 @@ public class CategoryService {
             return categoryRepository.findByName(name);
         } catch (DataAccessException e) {
             log.error("Error finding category by name: {}", name, e);
-            throw new RuntimeException("Failed to find category by name", e);
+            throw new ResourceNotFoundException("Failed to find category by name");
         }
     }
 
@@ -54,7 +55,7 @@ public class CategoryService {
             return categoryRepository.save(category);
         } catch (DataAccessException e) {
             log.error("Error creating category: {}", category.getName(), e);
-            throw new RuntimeException("Failed to create category", e);
+            throw new ResourceNotFoundException("Failed to create category");
         }
     }
 
@@ -73,7 +74,7 @@ public class CategoryService {
                     });
         } catch (DataAccessException e) {
             log.error("Error updating category ID: {}", id, e);
-            throw new RuntimeException("Failed to update category", e);
+            throw new ResourceNotFoundException("Failed to update category");
         }
     }
 
@@ -83,10 +84,10 @@ public class CategoryService {
             categoryRepository.deleteById(id);
         } catch (EmptyResultDataAccessException e) {
             log.error("Category not found for deletion: ID {}", id, e);
-            throw new RuntimeException("Category not found with id: " + id, e);
+            throw new ResourceNotFoundException("Category not found with id: " + id);
         } catch (DataAccessException e) {
             log.error("Error deleting category ID: {}", id, e);
-            throw new RuntimeException("Failed to delete category", e);
+            throw new ResourceNotFoundException("Failed to delete category");
         }
     }
 
@@ -96,7 +97,7 @@ public class CategoryService {
             return categoryRepository.existsByName(name);
         } catch (DataAccessException e) {
             log.error("Error checking if category name exists: {}", name, e);
-            throw new RuntimeException("Failed to check if category exists by name", e);
+            throw new ResourceNotFoundException("Failed to check if category exists by name");
         }
     }
 }

@@ -4,7 +4,6 @@ import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import com.example.personal_finance_tracker.app.services.CsvImportService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,8 +22,11 @@ import java.util.Objects;
 @Slf4j
 public class CsvImportController {
 
-    @Autowired
-    private CsvImportService csvImportService;
+    private final CsvImportService csvImportService;
+
+    public CsvImportController(CsvImportService csvImportService) {
+        this.csvImportService = csvImportService;
+    }
 
     @PostMapping("/import-csv")
     public ResponseEntity<?> importCsv(@RequestParam("file") MultipartFile file, Authentication authentication) {

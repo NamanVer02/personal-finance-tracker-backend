@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,11 +26,13 @@ import java.util.List;
 @Service
 public class CsvImportService {
 
-    @Autowired
-    private FinanceEntryRepoInterface financeEntryRepository;
+    private final FinanceEntryRepoInterface financeEntryRepository;
+    private final UserRepo userRepo;
 
-    @Autowired
-    private UserRepo userRepo;
+    public CsvImportService (FinanceEntryRepoInterface financeEntryRepository, UserRepo userRepo) {
+        this.financeEntryRepository = financeEntryRepository;
+        this.userRepo = userRepo;
+    }
 
     private static final int BATCH_SIZE = 1000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -56,17 +57,13 @@ public class CsvImportService {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-            CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
-                    .withFirstRecordAsHeader()
-                    .withIgnoreHeaderCase()
-                    .withTrim());
+            CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT);
 
             validateCsvHeaders(csvParser);
 
-            Iterable<CSVRecord> records = csvParser;
-            for (CSVRecord record : records) {
+            for (CSVRecord csvRecord : csvParser) {
                 try {
-                    FinanceEntry entry = parseRecord(record, user);
+                    FinanceEntry entry = parseRecord(csvRecord, user);
                     batch.add(entry);
 
                     if (batch.size() % BATCH_SIZE == 0) {
@@ -75,7 +72,7 @@ public class CsvImportService {
                         batch.clear();
                     }
                 } catch (Exception e) {
-                    log.warn("Error processing record {}: {}", record.getRecordNumber(), e.getMessage());
+                    log.warn("Error processing record {}: {}", csvRecord.getRecordNumber(), e.getMessage());
                 }
             }
 
@@ -88,14 +85,14 @@ public class CsvImportService {
         return result;
     }
 
-    private FinanceEntry parseRecord(CSVRecord record, User user) {
-        log.debug("Parsing record {}", record.getRecordNumber());
+    private FinanceEntry parseRecord(CSVRecord csvRecord, User user) {
+        log.debug("Parsing record {}", csvRecord.getRecordNumber());
         FinanceEntry entry = new FinanceEntry();
-        entry.setLabel(record.get("Label"));
-        entry.setType(record.get("Type"));
-        entry.setAmount(parseDoubleSafe(record.get("Amount")));
-        entry.setCategory(record.get("Category"));
-        entry.setDate(parseDateSafe(record.get("Date")));
+        entry.setLabel(csvRecord.get("Label"));
+        entry.setType(csvRecord.get("Type"));
+        entry.setAmount(parseDoubleSafe(csvRecord.get("Amount")));
+        entry.setCategory(csvRecord.get("Category"));
+        entry.setDate(parseDateSafe(csvRecord.get("Date")));
         entry.setUser(user);
         return entry;
     }

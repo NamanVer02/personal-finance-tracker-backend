@@ -3,7 +3,6 @@ package com.example.personal_finance_tracker.app.routes;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.services.UserService;
 import com.example.personal_finance_tracker.app.utils.LogCollector;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,8 +15,11 @@ import java.util.Map;
 @RequestMapping("/api/cache")
 public class CacheStatsController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    public CacheStatsController(UserService userService) {
+        this.userService = userService;
+    }
 
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getCacheStats() {

@@ -3,7 +3,6 @@ package com.example.personal_finance_tracker.app.config;
 import com.example.personal_finance_tracker.app.models.Category;
 import com.example.personal_finance_tracker.app.repository.CategoryRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -17,12 +16,15 @@ import java.util.List;
 @Slf4j
 public class CategoryDataInit implements CommandLineRunner {
 
-    @Autowired
-    private CategoryRepository categoryRepository;
+    private final CategoryRepository categoryRepository;
+
+    public CategoryDataInit(CategoryRepository categoryRepository) {
+        this.categoryRepository = categoryRepository;
+    }
 
     @Override
     @Transactional
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         log.info("Starting category data initialization");
 
         try {
