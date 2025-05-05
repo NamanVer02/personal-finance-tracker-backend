@@ -1,6 +1,6 @@
-package com.example.personal_finance_tracker.app.aspects;
+package com.example.personal_finance_tracker.app.utils;
 
-import com.example.personal_finance_tracker.app.utils.LogCollector;
+
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
