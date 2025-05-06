@@ -24,9 +24,9 @@ public class HikariCPMonitoringConfig {
 
     @Autowired
     public void configureHikariLogMetrics(DataSource dataSource) {
-        if (dataSource instanceof HikariDataSource) {
+        if (dataSource instanceof HikariDataSource hikariDataSource) {
             // Fix: Use setMetricsTrackerFactory instead of setMetricRegistry
-            ((HikariDataSource) dataSource).setMetricsTrackerFactory(new LoggingMetricsTracker());
+            hikariDataSource.setMetricsTrackerFactory(new LoggingMetricsTracker());
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.routes;
 
+import com.example.personal_finance_tracker.app.exceptions.FileProcessingException;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.services.FinanceEntryService;
@@ -7,7 +8,6 @@ import com.example.personal_finance_tracker.app.services.UserService;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,13 +27,16 @@ import java.util.List;
 @Slf4j
 public class DataDownloadController {
 
-    @Autowired
-    private FinanceEntryService financeEntryService;
+    private final FinanceEntryService financeEntryService;
+    private final UserService userService;
 
-    @Autowired
-    private UserService userService;
+    public DataDownloadController(FinanceEntryService financeEntryService, UserService userService) {
+        this.financeEntryService = financeEntryService;
+        this.userService = userService;
+    }
 
-    private static final SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
+    private final SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
+    private static final String ATTACHMENT = "attachment";
 
     // Existing CSV download endpoints
     @PostMapping("/download/{userId}/csv")
@@ -50,7 +53,7 @@ public class DataDownloadController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", "Transactions.csv");
+        headers.setContentDispositionFormData(ATTACHMENT, "Transactions.csv");
 
         log.info("Exiting downloadCsv method for userId: {}", userId);
         return ResponseEntity.ok()
@@ -73,7 +76,7 @@ public class DataDownloadController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", "Transactions.csv");
+        headers.setContentDispositionFormData(ATTACHMENT, "Transactions.csv");
 
         log.info("Exiting adminDownloadCsv method");
         return ResponseEntity.ok()
@@ -117,7 +120,7 @@ public class DataDownloadController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "Transactions.pdf");
+        headers.setContentDispositionFormData(ATTACHMENT, "Transactions.pdf");
 
         log.info("Exiting downloadPdf method for userId: {}", userId);
         return ResponseEntity.ok()
@@ -135,7 +138,7 @@ public class DataDownloadController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "Transactions.pdf");
+        headers.setContentDispositionFormData(ATTACHMENT, "Transactions.pdf");
 
         log.info("Exiting adminDownloadPdf method");
         return ResponseEntity.ok()
@@ -235,7 +238,7 @@ public class DataDownloadController {
 
         } catch (Exception e) {
             log.error("Failed to generate PDF: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to generate PDF: " + e.getMessage(), e);
+            throw new FileProcessingException("Failed to generate PDF: " + e.getMessage(), e);
         }
     }
 
@@ -269,7 +272,7 @@ public class DataDownloadController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", "FinancialSummary.csv");
+        headers.setContentDispositionFormData(ATTACHMENT, "FinancialSummary.csv");
 
         log.info("Exiting accountantDownloadSummaryCsv method");
         return ResponseEntity.ok()
@@ -288,7 +291,7 @@ public class DataDownloadController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "FinancialSummary.pdf");
+        headers.setContentDispositionFormData(ATTACHMENT, "FinancialSummary.pdf");
 
         log.info("Exiting accountantDownloadSummaryPdf method");
         return ResponseEntity.ok()
@@ -335,9 +338,11 @@ public class DataDownloadController {
 
                 table.addCell(String.valueOf(user.getId()));
                 table.addCell(user.getUsername());
-                table.addCell(String.format("$%.2f", totalIncome));
-                table.addCell(String.format("$%.2f", totalExpense));
-                table.addCell(String.format("$%.2f", netAmount));
+                String format = "$%.2f";
+
+                table.addCell(String.format(format, totalIncome));
+                table.addCell(String.format(format, totalExpense));
+                table.addCell(String.format(format, netAmount));
             }
             log.debug("Added data rows to PDF document");
 

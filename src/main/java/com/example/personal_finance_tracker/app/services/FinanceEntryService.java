@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.services;
 
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
 import com.example.personal_finance_tracker.app.interfaces.FinanceEntryRepoInterface;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class FinanceEntryService {
     private final FinanceEntryRepoInterface financeEntryRepo;
+    
+    private static final String INCOME = "income";
+    private static final String EXPENSE = "expense";
 
     public void deleteById(Long id) {
         log.info("Deleting finance entry with ID: {}", id);
@@ -24,10 +28,10 @@ public class FinanceEntryService {
             financeEntryRepo.deleteById(id);
         } catch (EmptyResultDataAccessException e) {
             log.error("Finance entry not found for deletion: ID {}", id, e);
-            throw new RuntimeException("Finance entry not found with id: " + id, e);
+            throw new ResourceNotFoundException("Finance entry not found with id: " + id);
         } catch (DataAccessException e) {
             log.error("Error deleting finance entry ID: {}", id, e);
-            throw new RuntimeException("Failed to delete finance entry", e);
+            throw new ResourceNotFoundException("Failed to delete finance entry");
         }
     }
 
@@ -37,7 +41,7 @@ public class FinanceEntryService {
             return financeEntryRepo.create(entry);
         } catch (DataAccessException e) {
             log.error("Error creating finance entry of type: {}", entry.getType(), e);
-            throw new RuntimeException("Failed to create finance entry", e);
+            throw new ResourceNotFoundException("Failed to create finance entry");
         }
     }
 
@@ -47,10 +51,10 @@ public class FinanceEntryService {
             return financeEntryRepo.update(id, entry);
         } catch (EmptyResultDataAccessException e) {
             log.error("Finance entry not found for update: ID {}", id, e);
-            throw new Exception("Finance entry not found with id: " + id);
+            throw new ResourceNotFoundException("Finance entry not found with id: " + id);
         } catch (DataAccessException e) {
             log.error("Error updating finance entry ID: {}", id, e);
-            throw new RuntimeException("Failed to update finance entry", e);
+            throw new ResourceNotFoundException("Failed to update finance entry");
         }
     }
 
@@ -60,7 +64,7 @@ public class FinanceEntryService {
             return financeEntryRepo.findAll();
         } catch (DataAccessException e) {
             log.error("Error retrieving all finance entries", e);
-            throw new RuntimeException("Failed to retrieve finance entries", e);
+            throw new ResourceNotFoundException("Failed to retrieve finance entries");
         }
     }
 
@@ -70,7 +74,7 @@ public class FinanceEntryService {
             return financeEntryRepo.findByType(type);
         } catch (DataAccessException e) {
             log.error("Error finding finance entries by type: {}", type, e);
-            throw new RuntimeException("Failed to find finance entries by type", e);
+            throw new ResourceNotFoundException("Failed to find finance entries by type");
         }
     }
 
@@ -80,7 +84,7 @@ public class FinanceEntryService {
             return financeEntryRepo.findByUserId(userId);
         } catch (DataAccessException e) {
             log.error("Error finding finance entries for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to find finance entries by user ID", e);
+            throw new ResourceNotFoundException("Failed to find finance entries by user ID");
         }
     }
 
@@ -90,7 +94,7 @@ public class FinanceEntryService {
             return financeEntryRepo.findByTypeAndUserId(type, userId);
         } catch (DataAccessException e) {
             log.error("Error finding {} entries for user ID: {}", type, userId, e);
-            throw new RuntimeException("Failed to find finance entries by type and user ID", e);
+            throw new ResourceNotFoundException("Failed to find finance entries by type and user ID");
         }
     }
 
@@ -109,7 +113,7 @@ public class FinanceEntryService {
             return categoryWiseSpending;
         } catch (DataAccessException e) {
             log.error("Error calculating category-wise spending for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to calculate category-wise spending", e);
+            throw new ResourceNotFoundException("Failed to calculate category-wise spending");
         }
     }
 
@@ -128,67 +132,67 @@ public class FinanceEntryService {
             return categoryWiseIncome;
         } catch (DataAccessException e) {
             log.error("Error calculating category-wise income for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to calculate category-wise income", e);
+            throw new ResourceNotFoundException("Failed to calculate category-wise income");
         }
     }
 
     public double getTotalIncomeForAllUsers() {
         log.info("Calculating total income for all users");
         try {
-            return financeEntryRepo.sumByType("Income");
+            return financeEntryRepo.sumByType(INCOME);
         } catch (DataAccessException e) {
             log.error("Error calculating total income for all users", e);
-            throw new RuntimeException("Failed to calculate total income for all users", e);
+            throw new ResourceNotFoundException("Failed to calculate total income for all users");
         }
     }
 
     public double getTotalExpenseForAllUsers() {
         log.info("Calculating total expense for all users");
         try {
-            return financeEntryRepo.sumByType("Expense");
+            return financeEntryRepo.sumByType(EXPENSE);
         } catch (DataAccessException e) {
             log.error("Error calculating total expense for all users", e);
-            throw new RuntimeException("Failed to calculate total expense for all users", e);
+            throw new ResourceNotFoundException("Failed to calculate total expense for all users");
         }
     }
 
     public double getTotalIncomeForUser(Long userId) {
         log.info("Calculating total income for user ID: {}", userId);
         try {
-            return financeEntryRepo.sumByTypeAndUserId("Income", userId);
+            return financeEntryRepo.sumByTypeAndUserId(INCOME, userId);
         } catch (DataAccessException e) {
             log.error("Error calculating total income for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to calculate total income for user", e);
+            throw new ResourceNotFoundException("Failed to calculate total income for user");
         }
     }
 
     public double getTotalExpenseForUser(Long userId) {
         log.info("Calculating total expense for user ID: {}", userId);
         try {
-            return financeEntryRepo.sumByTypeAndUserId("Expense", userId);
+            return financeEntryRepo.sumByTypeAndUserId(EXPENSE, userId);
         } catch (DataAccessException e) {
             log.error("Error calculating total expense for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to calculate total expense for user", e);
+            throw new ResourceNotFoundException("Failed to calculate total expense for user");
         }
     }
 
     public Map<String, Double> getMonthlyIncomeForAllUsers() {
         log.info("Aggregating monthly income for all users");
         try {
-            return financeEntryRepo.getMonthlyAggregateByType("Income");
+            return financeEntryRepo.getMonthlyAggregateByType(INCOME);
         } catch (DataAccessException e) {
             log.error("Error aggregating monthly income for all users", e);
-            throw new RuntimeException("Failed to get monthly income for all users", e);
+            throw new ResourceNotFoundException("Failed to get monthly income for all users");
         }
     }
 
     public Map<String, Double> getMonthlyExpenseForAllUsers() {
         log.info("Aggregating monthly expense for all users");
         try {
-            return financeEntryRepo.getMonthlyAggregateByType("Expense");
+            return financeEntryRepo.getMonthlyAggregateByType(EXPENSE);
         } catch (DataAccessException e) {
             log.error("Error aggregating monthly expense for all users", e);
-            throw new RuntimeException("Failed to get monthly expense for all users", e);
+            throw new ResourceNotFoundException("Failed to get monthly expense for all users");
         }
     }
 
@@ -198,7 +202,7 @@ public class FinanceEntryService {
             return financeEntryRepo.getCategoryWiseExpenseForCurrentYear(userId);
         } catch (DataAccessException e) {
             log.error("Error calculating category-wise annual expenses for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to get category-wise expenses for current year", e);
+            throw new ResourceNotFoundException("Failed to get category-wise expenses for current year");
         }
     }
 
@@ -208,7 +212,7 @@ public class FinanceEntryService {
             return financeEntryRepo.getCategoryWiseIncomeForCurrentYear(userId);
         } catch (DataAccessException e) {
             log.error("Error calculating category-wise annual income for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to get category-wise income for current year", e);
+            throw new ResourceNotFoundException("Failed to get category-wise income for current year");
         }
     }
 
@@ -218,7 +222,7 @@ public class FinanceEntryService {
             return financeEntryRepo.findAllByUser_Id(userId).size();
         } catch (DataAccessException e) {
             log.error("Error getting transaction count for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to get transaction count", e);
+            throw new ResourceNotFoundException("Failed to get transaction count");
         }
     }
 }

@@ -1,10 +1,12 @@
 package com.example.personal_finance_tracker.app.models.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.experimental.UtilityClass;
+import lombok.NoArgsConstructor;
 
 @Data
-@UtilityClass
+@NoArgsConstructor
+@AllArgsConstructor
 public class CheckResetPassword {
-    private static String username;
+    private String username;
 }

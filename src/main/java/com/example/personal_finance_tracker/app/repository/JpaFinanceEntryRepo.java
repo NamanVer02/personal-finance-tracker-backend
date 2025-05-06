@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.repository;
 
+import com.example.personal_finance_tracker.app.exceptions.JwtAuthenticationException;
 import com.example.personal_finance_tracker.app.interfaces.FinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.interfaces.JpaFinanceEntryRepoInterface;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
@@ -67,7 +68,7 @@ public class JpaFinanceEntryRepo implements FinanceEntryRepoInterface {
         if (financeEntry.getUserId() != null && existingEntry.getUser() != null &&
                 !financeEntry.getUserId().equals(existingEntry.getUser().getId())) {
             log.warn("Attempt to change user association for entry ID: {}", id);
-            throw new Exception("Cannot change the user associated with a finance entry");
+            throw new JwtAuthenticationException("Cannot change the user associated with a finance entry");
         }
 
         FinanceEntry updatedEntry = jpaRepo.save(existingEntry);

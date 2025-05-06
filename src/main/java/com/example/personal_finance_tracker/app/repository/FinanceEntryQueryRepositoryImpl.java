@@ -50,7 +50,7 @@ public class FinanceEntryQueryRepositoryImpl implements FinanceEntryQueryReposit
         applyFilters(query, type, category, minAmount, maxAmount, startDate, endDate, searchTerm);
         applySorting(query, pageable);
 
-        long total = query.fetchCount();
+        long total = query.fetch().size();
         log.debug("Total entries found: {}", total);
 
         List<FinanceEntry> entries = query
@@ -84,7 +84,7 @@ public class FinanceEntryQueryRepositoryImpl implements FinanceEntryQueryReposit
         applyFilters(query, type, category, minAmount, maxAmount, startDate, endDate, searchTerm);
         applySorting(query, pageable);
 
-        long total = query.fetchCount();
+        long total = query.fetch().size();
         log.debug("Total admin entries found: {}", total);
 
         List<FinanceEntry> entries = query
@@ -146,7 +146,6 @@ public class FinanceEntryQueryRepositoryImpl implements FinanceEntryQueryReposit
         if (pageable.getSort().isSorted()) {
             log.debug("Applying sorting criteria");
             pageable.getSort().forEach(order -> {
-                PathBuilder<FinanceEntry> pathBuilder = new PathBuilder<>(FinanceEntry.class, "financeEntry");
                 ComparableExpressionBase<?> sortExpression = null;
 
                 switch (order.getProperty()) {

@@ -22,10 +22,16 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final String MESSAGE = "message";
+    private static final String ERROR = "error";
+    private static final String VALIDATION_ERROR = "Validation Error";
+    private static final String AUTHENTICATION_ERROR = "Authentication Error";
+
+
     private ResponseEntity<Object> buildErrorResponse(String message, String error, HttpStatus status) {
         Map<String, Object> body = new HashMap<>();
-        body.put("message", message);
-        body.put("error", error);
+        body.put(MESSAGE, message);
+        body.put(ERROR, error);
         return new ResponseEntity<>(body, status);
     }
 
@@ -45,7 +51,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<Object> handleValidation(ValidationException ex) {
-        return buildErrorResponse(ex.getMessage(), "Validation Error", HttpStatus.BAD_REQUEST);
+        return buildErrorResponse(ex.getMessage(), VALIDATION_ERROR, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(FileProcessingException.class)
@@ -55,28 +61,28 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(JwtAuthenticationException.class)
     public ResponseEntity<Object> handleJwtAuthentication(JwtAuthenticationException ex) {
-        return buildErrorResponse(ex.getMessage(), "Authentication Error", HttpStatus.UNAUTHORIZED);
+        return buildErrorResponse(ex.getMessage(), AUTHENTICATION_ERROR, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
     public ResponseEntity<Object> handleAuthenticationFailure(Exception ex) {
         String message = ex.getMessage() != null ? ex.getMessage() : "Invalid username or password";
-        return buildErrorResponse(message, "Authentication Error", HttpStatus.UNAUTHORIZED);
+        return buildErrorResponse(message, AUTHENTICATION_ERROR, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<Object> handleAccountLocked(LockedException ex) {
-        return buildErrorResponse("Account is locked for 10mins", "Authentication Error", HttpStatus.UNAUTHORIZED);
+        return buildErrorResponse("Account is locked for 10mins", AUTHENTICATION_ERROR, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler({MalformedJwtException.class, SignatureException.class})
     public ResponseEntity<Object> handleInvalidToken(Exception ex) {
-        return buildErrorResponse("Invalid token", "Authentication Error", HttpStatus.UNAUTHORIZED);
+        return buildErrorResponse("Invalid token", AUTHENTICATION_ERROR, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(ExpiredJwtException.class)
     public ResponseEntity<Object> handleExpiredToken(ExpiredJwtException ex) {
-        return buildErrorResponse("Token has expired", "Authentication Error", HttpStatus.UNAUTHORIZED);
+        return buildErrorResponse("Token has expired", AUTHENTICATION_ERROR, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -98,8 +104,8 @@ public class GlobalExceptionHandler {
             errors.put(error.getField(), error.getDefaultMessage())
         );
 
-        body.put("message", "Validation failed");
-        body.put("error", "Validation Error");
+        body.put(MESSAGE, "Validation failed");
+        body.put(ERROR, VALIDATION_ERROR);
         body.put("details", errors);
 
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
@@ -116,8 +122,8 @@ public class GlobalExceptionHandler {
             errors.put(field, violation.getMessage());
         });
 
-        body.put("message", "Validation failed");
-        body.put("error", "Validation Error");
+        body.put(MESSAGE, "Validation failed");
+        body.put(ERROR, VALIDATION_ERROR);
         body.put("details", errors);
 
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);

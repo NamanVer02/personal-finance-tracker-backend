@@ -22,20 +22,19 @@ import java.util.Set;
 @Slf4j
 public class DevDataInit implements CommandLineRunner {
 
-    @Autowired
-    private RoleRepo roleRepository;
+    private final RoleRepo roleRepository;
+    private final UserRepo userRepository;
+    private final RoleService roleService;
+    private final UserService userService;
+    private final PasswordEncoder encoder;
 
-    @Autowired
-    private UserRepo userRepository;
-
-    @Autowired
-    private RoleService roleService;
-
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private PasswordEncoder encoder;
+    public DevDataInit(RoleRepo roleRepository, UserRepo userRepository, RoleService roleService, UserService userService, PasswordEncoder encoder) {
+        this.roleRepository = roleRepository;
+        this.userRepository = userRepository;
+        this.roleService = roleService;
+        this.userService = userService;
+        this.encoder = encoder;
+    }
 
     // Security Note: Should be externalized for real development environments
     private static final String TEST_2FA_SECRET = "JBSWY3DPEHPK3PXP";

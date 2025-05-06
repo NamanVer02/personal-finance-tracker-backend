@@ -1,5 +1,6 @@
 package com.example.personal_finance_tracker.app.services;
 
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
@@ -18,6 +19,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,7 +36,7 @@ public class GAService {
             return key.getKey();
         } catch (Exception e) {
             log.error("Error generating TOTP secret key", e);
-            throw new RuntimeException("Failed to generate TOTP secret key", e);
+            throw new ResourceNotFoundException("Failed to generate TOTP secret key");
         }
     }
 
@@ -49,7 +51,7 @@ public class GAService {
             return isValid;
         } catch (Exception e) {
             log.error("Error validating TOTP code", e);
-            throw new RuntimeException("Failed to validate TOTP code", e);
+            throw new ResourceNotFoundException("Failed to validate TOTP code");
         }
     }
 
@@ -60,23 +62,28 @@ public class GAService {
                     ISSUER,
                     username,
                     new GoogleAuthenticatorKey.Builder(secret).build());
-            try {
-                return generateQRBase64(url);
-            } catch (Exception e) {
-                log.error("QR generation failed for {}: {}", username, e.getMessage());
-                throw new RuntimeException("Failed to generate QR code", e);
-            }
+            return generateQRCodeFromUrl(url, username);
         } catch (Exception e) {
             log.error("Error generating QR URL for username: {}", username, e);
-            throw new RuntimeException("Failed to generate QR URL", e);
+            throw new ResourceNotFoundException("Failed to generate QR URL");
         }
     }
+
+    private String generateQRCodeFromUrl(String url, String username) {
+        try {
+            return generateQRBase64(url);
+        } catch (Exception e) {
+            log.error("QR generation failed for {}: {}", username, e.getMessage());
+            throw new ResourceNotFoundException("Failed to generate QR code");
+        }
+    }
+
 
     public static String generateQRBase64(String qrCodeText) {
         log.info("Generating QR code image");
         try {
             QRCodeWriter qrCodeWriter = new QRCodeWriter();
-            Map<EncodeHintType, Object> hintMap = new HashMap<>();
+            EnumMap<EncodeHintType, Object> hintMap = new EnumMap<>(EncodeHintType.class);
             hintMap.put(EncodeHintType.CHARACTER_SET, "UTF-8");
 
             BitMatrix bitMatrix = qrCodeWriter.encode(qrCodeText, BarcodeFormat.QR_CODE, 200, 200, hintMap);
@@ -89,13 +96,13 @@ public class GAService {
             return Base64.getEncoder().encodeToString(imageBytes);
         } catch (WriterException e) {
             log.error("QR code writing error: {}", e.getMessage());
-            throw new RuntimeException("Failed to write QR code", e);
+            throw new ResourceNotFoundException("Failed to write QR code");
         } catch (IOException e) {
             log.error("QR image generation IO error: {}", e.getMessage());
-            throw new RuntimeException("Failed to generate QR image", e);
+            throw new ResourceNotFoundException("Failed to generate QR image");
         } catch (Exception e) {
             log.error("Unexpected error in QR generation: {}", e.getMessage());
-            throw new RuntimeException("Unexpected error in QR generation", e);
+            throw new ResourceNotFoundException("Unexpected error in QR generation");
         }
     }
 }

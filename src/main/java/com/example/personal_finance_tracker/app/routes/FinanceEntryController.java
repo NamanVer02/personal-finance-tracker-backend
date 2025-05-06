@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -37,6 +38,8 @@ public class FinanceEntryController {
     private final UserService userService;
     private final FinanceEntryQueryRepository financeEntryRepository;
 
+    private static final String ADMIN_ROLE = "ADMIN";
+
     @PostMapping("/get")
     public List<FinanceEntry> getAll() {
         log.info("Entering getAll method");
@@ -44,7 +47,7 @@ public class FinanceEntryController {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
         // Check if user has ADMIN role
-        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority(ADMIN_ROLE));
 
         if (isAdmin) {
             // Admin can see all entries
@@ -68,7 +71,7 @@ public class FinanceEntryController {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
         // Check if user has ADMIN role
-        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority(ADMIN_ROLE));
 
         if (isAdmin) {
             // Admin can see all entries of a specific type
@@ -103,7 +106,7 @@ public class FinanceEntryController {
         log.info("Entering update method for ID: {} with financeEntry: {}", id, financeEntry);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority(ADMIN_ROLE));
 
         // Get the existing entry to check ownership
         List<FinanceEntry> userEntries = financeEntryService.findByUserId(userDetails.getId());
@@ -126,7 +129,7 @@ public class FinanceEntryController {
             return updatedEntry;
         } else {
             log.warn("User does not have permission to update entry with ID: {}", id);
-            throw new Exception("You don't have permission to update this entry");
+            throw new AccessDeniedException("You don't have permission to update this entry");
         }
     }
 
@@ -135,7 +138,7 @@ public class FinanceEntryController {
         log.info("Entering delete method for ID: {}", id);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"));
+        boolean isAdmin = authentication.getAuthorities().contains(new SimpleGrantedAuthority(ADMIN_ROLE));
 
         List<FinanceEntry> userEntries = financeEntryService.findByUserId(userDetails.getId());
         boolean isOwner = userEntries.stream().anyMatch(entry -> entry.getId().equals(id));

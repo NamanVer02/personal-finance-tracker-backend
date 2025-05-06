@@ -9,6 +9,7 @@ import com.example.personal_finance_tracker.app.services.RoleService;
 import com.example.personal_finance_tracker.app.services.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,20 +23,24 @@ import java.util.Set;
 @Slf4j
 public class InitConfig implements CommandLineRunner {
 
-    @Autowired
-    private RoleRepo roleRepository;
+    private final RoleRepo roleRepository;
+    private final UserRepo userRepository;
+    private final RoleService roleService;
+    private final UserService userService;
+    private final PasswordEncoder encoder;
 
-    @Autowired
-    private UserRepo userRepository;
+    @Value("${app.adminPassword}")
+    private String adminPassword;
+    private static final String ROLE_ADMIN = "admin";
 
-    @Autowired
-    private RoleService roleService;
 
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private PasswordEncoder encoder;
+    public InitConfig (RoleRepo roleRepository, UserRepo userRepository, RoleService roleService, UserService userService, PasswordEncoder encoder) {
+        this.roleRepository = roleRepository;
+        this.userRepository = userRepository;
+        this.roleService = roleService;
+        this.userService = userService;
+        this.encoder = encoder;
+    }
 
     // Security Note: This should be externalized to secure configuration
     private static final String ADMIN_2FA_SECRET = "JBSWY3DPEHPK3PXP";
@@ -79,9 +84,9 @@ public class InitConfig implements CommandLineRunner {
     }
 
     private void initializeAdminUser() {
-        userRepository.findByUsername("admin").ifPresentOrElse(
-                existingAdmin -> handleExistingAdmin(existingAdmin),
-                () -> createNewAdmin()
+        userRepository.findByUsername(ROLE_ADMIN).ifPresentOrElse(
+                this::handleExistingAdmin,
+                this::createNewAdmin
         );
     }
 
@@ -112,8 +117,8 @@ public class InitConfig implements CommandLineRunner {
         roles.add(adminRole);
 
         User admin = new User();
-        admin.setUsername("admin");
-        admin.setPassword(encoder.encode("admin"));
+        admin.setUsername(ROLE_ADMIN);
+        admin.setPassword(encoder.encode(adminPassword));
         admin.setEmail("admin@example.com");
         admin.setRoles(roles);
         admin.setTwoFactorEnabled(true);
