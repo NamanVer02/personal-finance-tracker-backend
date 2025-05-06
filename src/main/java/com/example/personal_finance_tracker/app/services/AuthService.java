@@ -1,22 +1,22 @@
 package com.example.personal_finance_tracker.app.services;
 
+import com.example.personal_finance_tracker.app.exceptions.JwtAuthenticationException;
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
+import com.example.personal_finance_tracker.app.exceptions.ValidationException;
 import com.example.personal_finance_tracker.app.interfaces.AuthServiceInterface;
-import com.example.personal_finance_tracker.app.models.TokenRegistry;
 import com.example.personal_finance_tracker.app.models.ERole;
 import com.example.personal_finance_tracker.app.models.Role;
+import com.example.personal_finance_tracker.app.models.TokenRegistry;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.models.dto.*;
 import com.example.personal_finance_tracker.app.repository.TokenRegistryRepository;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.security.JwtUtil;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
+import com.warrenstrange.googleauth.GoogleAuthenticatorException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.LockedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,197 +28,50 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class AuthService implements AuthServiceInterface {
-    @Autowired
-    private AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserService userService;
+    private final AuthenticationManager authenticationManager;
+    private final UserService userService;
+    private final RoleService roleService;
+    private final PasswordEncoder encoder;
+    private final JwtUtil jwtUtils;
+    private final UserRepo userRepo;
+    private final GAService gaService;
+    private final TokenRegistryRepository tokenRegistryRepository;
+    private final TokenRegistryService blacklistedTokenRegistryService;
+    private final TokenRegistryService tokenRegistryService;
 
-    @Autowired
-    private RoleService roleService;
-
-    @Autowired
-    private PasswordEncoder encoder;
-
-    @Autowired
-    private JwtUtil jwtUtils;
-
-    @Autowired
-    private UserRepo userRepo;
-
-    @Autowired
-    private GAService gaService;
-
-    @Autowired
-    private TokenRegistryRepository tokenRegistryRepository;
-
-    @Autowired
-    private TokenRegistryService blacklistedTokenRegistryService;
-    @Autowired
-    private TokenRegistryService tokenRegistryService;
+    public AuthService(AuthenticationManager authenticationManager, UserService userService, RoleService roleService, PasswordEncoder encoder, JwtUtil jwtUtils, UserRepo userRepo, GAService gaService, TokenRegistryRepository tokenRegistryRepository, TokenRegistryService blacklistedTokenRegistryService, TokenRegistryService tokenRegistryService) {
+        this.authenticationManager = authenticationManager;
+        this.userService = userService;
+        this.roleService = roleService;
+        this.encoder = encoder;
+        this.jwtUtils = jwtUtils;
+        this.userRepo = userRepo;
+        this.gaService = gaService;
+        this.tokenRegistryRepository = tokenRegistryRepository;
+        this.blacklistedTokenRegistryService = blacklistedTokenRegistryService;
+        this.tokenRegistryService = tokenRegistryService;
+    }
 
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
         log.info("Authenticating user: {}", loginRequest.getUsername());
-        
+
         try {
-            User user = userRepo.findByUsername(loginRequest.getUsername()).orElse(null);
+            User user = findAndValidateUser(loginRequest.getUsername());
+            Authentication authentication = performAuthentication(loginRequest);
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-            // Check if account is expired before authentication
-            if (user != null && user.isAccountExpired()) {
-                log.warn("Account is expired for user: {}", loginRequest.getUsername());
-                throw new BadCredentialsException("Your account has expired. Please contact the admin to reactivate your account.");
-            }
+            validateUserLockStatus(user);
 
-            if (user != null && user.getFailedAttempts() > 5) {
-                userService.lockUser(user);
-                log.warn("Account is locked for user: {}", loginRequest.getUsername());
-                throw new LockedException("Your account is locked for 10mins for user: " + loginRequest.getUsername());
-            }
-
-            // First authenticate with username and password
-            try {
-                Authentication authentication = authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-
-                // Get the user details
-                UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-
-                // Check if user has 2FA enabled
-                if (user != null && !user.isAccountNonLocked()) {
-                    log.warn("Account is locked for user: {}", loginRequest.getUsername());
-                    throw new LockedException("Account is locked. Please try again after 10 minutes.");
-                }
-
-                assert user != null;
-                if (user.isTwoFactorEnabled()) {
-                    // If 2FA code is provided, verify it
-                    if (loginRequest.getTwoFactorCode() != null) {
-                        log.info("Verifying 2FA code for user: {}", loginRequest.getUsername());
-                        boolean isValid = gaService.isValid(user.getTwoFactorSecret(), loginRequest.getTwoFactorCode());
-
-                        if (!isValid) {
-                            log.warn("Invalid 2FA code provided for user: {}", loginRequest.getUsername());
-                            throw new BadCredentialsException("Invalid 2FA code");
-                        }
-
-                        // 2FA successful, set authentication and generate JWT
-                        log.info("2FA verification successful for user: {}. Invalidating previous tokens.", loginRequest.getUsername());
-                        try {
-                            tokenRegistryService.invalidatePreviousTokens(user.getUsername());
-                        } catch (Exception e) {
-                            log.warn("Failed to invalidate previous tokens for user: {}", loginRequest.getUsername(), e);
-                            // Continue with authentication despite token invalidation failure
-                        }
-
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                        String accessToken = jwtUtils.generateJwtToken(authentication);
-                        String refreshToken = jwtUtils.generateRefreshToken(authentication);
-
-                        List<String> roles = userDetails.getAuthorities().stream()
-                                .map(GrantedAuthority::getAuthority)
-                                .collect(Collectors.toList());
-
-                        try {
-                            log.info("Resetting failed login attempts for user: {}", loginRequest.getUsername());
-                            userService.resetFailedAttempts(user.getUsername());
-                            log.info("Updating last login date for user: {}", loginRequest.getUsername());
-                            user.updateLastLoginDate();
-                            userRepo.save(user);
-                        } catch (DataAccessException e) {
-                            log.warn("Failed to update user login data for: {}", loginRequest.getUsername(), e);
-                            // Continue with authentication despite update failure
-                        }
-
-                        JwtResponse response = new JwtResponse(
-                                accessToken,
-                                refreshToken,
-                                userDetails.getId(),
-                                userDetails.getUsername(),
-                                userDetails.getEmail(),
-                                roles,
-                                false,
-                                user.getProfileImage());
-                        log.info("Authentication successful, returning JWT response for user: {}", loginRequest.getUsername());
-                        return response;
-                    } else {
-                        // 2FA code not provided, return response indicating 2FA is required
-                        log.info("2FA code required for user: {}", loginRequest.getUsername());
-                        JwtResponse response = new JwtResponse(
-                                null,
-                                null,
-                                userDetails.getId(),
-                                userDetails.getUsername(),
-                                userDetails.getEmail(),
-                                null,
-                                true,
-                                user.getProfileImage());
-                        log.info("Returning 2FA required JWT response for user: {}", loginRequest.getUsername());
-                        return response;
-                    }
-                } else {
-                    // No 2FA required, process normally
-                    log.info("2FA not enabled for user: {}. Invalidating previous tokens.", loginRequest.getUsername());
-                    try {
-                        tokenRegistryService.invalidatePreviousTokens(user.getUsername());
-                    } catch (Exception e) {
-                        log.warn("Failed to invalidate previous tokens for user: {}", loginRequest.getUsername(), e);
-                        // Continue with authentication despite token invalidation failure
-                    }
-
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                    String accessToken = jwtUtils.generateJwtToken(authentication);
-                    String refreshToken = jwtUtils.generateRefreshToken(authentication);
-
-                    List<String> roles = userDetails.getAuthorities().stream()
-                            .map(GrantedAuthority::getAuthority)
-                            .collect(Collectors.toList());
-
-                    try {
-                        log.info("Resetting failed login attempts for user: {}", loginRequest.getUsername());
-                        userService.resetFailedAttempts(user.getUsername());
-                        log.info("Updating last login date for user: {}", loginRequest.getUsername());
-                        user.updateLastLoginDate();
-                        userRepo.save(user);
-                    } catch (DataAccessException e) {
-                        log.warn("Failed to update user login data for: {}", loginRequest.getUsername(), e);
-                        // Continue with authentication despite update failure
-                    }
-
-                    JwtResponse response = new JwtResponse(
-                            accessToken,
-                            refreshToken,
-                            userDetails.getId(),
-                            userDetails.getUsername(),
-                            userDetails.getEmail(),
-                            roles,
-                            false,
-                            user.getProfileImage());
-                    log.info("Authentication successful, returning JWT response for user: {}", loginRequest.getUsername());
-                    return response;
-                }
-            } catch (BadCredentialsException e) {
-                log.warn("Authentication failed due to bad credentials for user: {}", loginRequest.getUsername());
-                if (user != null) {
-                    log.info("Incrementing failed login attempts for user: {}", loginRequest.getUsername());
-                    try {
-                        userService.incrementFailedAttempts(user);
-
-                        if (userService.isMaxFailedAttemptsReached(user)) {
-                            log.warn("Max failed attempts reached, locking account for user: {}", loginRequest.getUsername());
-                            userService.lockUser(user);
-                        }
-                    } catch (Exception ex) {
-                        log.error("Error handling failed login attempt for user: {}", loginRequest.getUsername(), ex);
-                        // Continue with throwing the original exception
-                    }
-                }
-                throw e;
+            if (user.isTwoFactorEnabled()) {
+                return handleTwoFactorAuthentication(loginRequest, user, authentication, userDetails);
+            } else {
+                return handleStandardAuthentication(user, authentication, userDetails);
             }
         } catch (LockedException | BadCredentialsException e) {
             // These are already handled and should be propagated
@@ -228,154 +81,324 @@ public class AuthService implements AuthServiceInterface {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during authentication for user: {}", loginRequest.getUsername(), e);
-            throw new RuntimeException("Authentication failed due to server error", e);
+            throw new AuthenticationServiceException("Authentication failed due to server error", e);
         }
     }
+
+    private User findAndValidateUser(String username) {
+        User user = userRepo.findByUsername(username).orElse(null);
+
+        // Check if account is expired before authentication
+        if (user != null && user.isAccountExpired()) {
+            log.warn("Account is expired for user: {}", username);
+            throw new BadCredentialsException("Your account has expired. Please contact the admin to reactivate your account.");
+        }
+
+        if (user != null && user.getFailedAttempts() > 5) {
+            userService.lockUser(user);
+            throw new LockedException("Your account is locked for 10mins for user: " + username);
+        }
+
+        return user;
+    }
+
+    private Authentication performAuthentication(LoginRequest loginRequest) {
+        try {
+            return authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()));
+        } catch (BadCredentialsException e) {
+            handleFailedAuthentication(loginRequest.getUsername());
+            throw e;
+        }
+    }
+
+    private void handleFailedAuthentication(String username) {
+        log.warn("Authentication failed due to bad credentials for user: {}", username);
+        User user = userRepo.findByUsername(username).orElse(null);
+
+        if (user != null) {
+            log.info("Incrementing failed login attempts for user: {}", username);
+            try {
+                userService.incrementFailedAttempts(user);
+
+                if (userService.isMaxFailedAttemptsReached(user)) {
+                    log.warn("Max failed attempts reached, locking account for user: {}", username);
+                    userService.lockUser(user);
+                }
+            } catch (Exception ex) {
+                log.error("Error handling failed login attempt for user: {}", username, ex);
+                // Continue with throwing the original exception
+            }
+        }
+    }
+
+    private void validateUserLockStatus(User user) {
+        if (user != null && !user.isAccountNonLocked()) {
+            log.warn("Account is locked for user: {}", user.getUsername());
+            throw new LockedException("Account is locked. Please try again after 10 minutes.");
+        }
+    }
+
+    private JwtResponse handleTwoFactorAuthentication(LoginRequest loginRequest, User user,
+                                                      Authentication authentication, UserDetailsImpl userDetails) {
+        // If 2FA code is provided, verify it
+        if (loginRequest.getTwoFactorCode() != null) {
+            return verifyTwoFactorAndGenerateResponse(loginRequest, user, authentication, userDetails);
+        } else {
+            // 2FA code not provided, return response indicating 2FA is required
+            log.info("2FA code required for user: {}", loginRequest.getUsername());
+            JwtResponse response = new JwtResponse(
+                    null,
+                    null,
+                    userDetails.getId(),
+                    userDetails.getUsername(),
+                    userDetails.getEmail(),
+                    null,
+                    true,
+                    user.getProfileImage());
+            log.info("Returning 2FA required JWT response for user: {}", loginRequest.getUsername());
+            return response;
+        }
+    }
+
+    private JwtResponse verifyTwoFactorAndGenerateResponse(LoginRequest loginRequest, User user,
+                                                           Authentication authentication, UserDetailsImpl userDetails) {
+        log.info("Verifying 2FA code for user: {}", loginRequest.getUsername());
+        boolean isValid = gaService.isValid(user.getTwoFactorSecret(), loginRequest.getTwoFactorCode());
+
+        if (!isValid) {
+            log.warn("Invalid 2FA code provided for user: {}", loginRequest.getUsername());
+            throw new BadCredentialsException("Invalid 2FA code");
+        }
+
+        // 2FA successful, set authentication and generate JWT
+        log.info("2FA verification successful for user: {}. Invalidating previous tokens.", loginRequest.getUsername());
+        invalidatePreviousTokens(user.getUsername());
+
+        return generateAuthenticationResponse(user, authentication, userDetails);
+    }
+
+    private JwtResponse handleStandardAuthentication(User user, Authentication authentication, UserDetailsImpl userDetails) {
+        // No 2FA required, process normally
+        log.info("2FA not enabled for user: {}. Invalidating previous tokens.", user.getUsername());
+        invalidatePreviousTokens(user.getUsername());
+
+        return generateAuthenticationResponse(user, authentication, userDetails);
+    }
+
+    private void invalidatePreviousTokens(String username) {
+        try {
+            tokenRegistryService.invalidatePreviousTokens(username);
+        } catch (Exception e) {
+            log.warn("Failed to invalidate previous tokens for user: {}", username, e);
+            // Continue with authentication despite token invalidation failure
+        }
+    }
+
+    private JwtResponse generateAuthenticationResponse(User user, Authentication authentication, UserDetailsImpl userDetails) {
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String accessToken = jwtUtils.generateJwtToken(authentication);
+        String refreshToken = jwtUtils.generateRefreshToken(authentication);
+
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        updateUserLoginData(user);
+
+        JwtResponse response = new JwtResponse(
+                accessToken,
+                refreshToken,
+                userDetails.getId(),
+                userDetails.getUsername(),
+                userDetails.getEmail(),
+                roles,
+                false,
+                user.getProfileImage());
+        log.info("Authentication successful, returning JWT response for user: {}", user.getUsername());
+        return response;
+    }
+
+    private void updateUserLoginData(User user) {
+        try {
+            log.info("Resetting failed login attempts for user: {}", user.getUsername());
+            userService.resetFailedAttempts(user.getUsername());
+            log.info("Updating last login date for user: {}", user.getUsername());
+            user.updateLastLoginDate();
+            userRepo.save(user);
+        } catch (DataAccessException e) {
+            log.warn("Failed to update user login data for: {}", user.getUsername(), e);
+            // Continue with authentication despite update failure
+        }
+    }
+
 
     @Override
     public SignupResponse registerUser(SignUpRequest signupRequest, String base64Image) {
         log.info("Registering new user with username: {}", signupRequest.getUsername());
         try {
-            // Username validation
-            String username = signupRequest.getUsername();
-            if (username == null || username.trim().length() < 3) {
-                log.warn("Registration failed: Username too short '{}'", username);
-                throw new RuntimeException("Username must be at least 3 characters long");
-            }
-            if (!username.matches("^[a-zA-Z0-9_]+$")) {
-                log.warn("Registration failed: Username invalid '{}'", username);
-                throw new RuntimeException("Username can only contain letters, numbers, and underscores");
-            }
+            validateUserInput(signupRequest);
+            checkUserExistence(signupRequest);
 
-            // Email validation
-            String email = signupRequest.getEmail();
-            if (email == null || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-                log.warn("Registration failed: Email invalid '{}'", email);
-                throw new RuntimeException("Please enter a valid email address");
-            }
+            User user = createUserObject(signupRequest, base64Image);
+            assignUserRoles(user, signupRequest.getRoles());
 
-            // Password validation
-            String password = signupRequest.getPassword();
-            if (password == null || password.length() < 8) {
-                log.warn("Registration failed: Password too short for '{}'", username);
-                throw new RuntimeException("Password must be at least 8 characters");
-            }
-            if (!password.matches(".*[A-Z].*")) {
-                log.warn("Registration failed: Password missing uppercase for '{}'", username);
-                throw new RuntimeException("Must contain one uppercase letter");
-            }
-            if (!password.matches(".*[a-z].*")) {
-                log.warn("Registration failed: Password missing lowercase for '{}'", username);
-                throw new RuntimeException("Must contain one lowercase letter");
-            }
-            if (!password.matches(".*\\d.*")) {
-                log.warn("Registration failed: Password missing number for '{}'", username);
-                throw new RuntimeException("Must contain one number");
-            }
-            if (!password.matches(".*[!@#$%^&*].*")) {
-                log.warn("Registration failed: Password missing special character for '{}'", username);
-                throw new RuntimeException("Must contain one special character (!@#$%^&*)");
-            }
-
-            if (userService.existsByUsername(signupRequest.getUsername())) {
-                log.warn("Registration failed: Username already taken for username: {}", signupRequest.getUsername());
-                throw new RuntimeException("Error: Username is already taken!");
-            }
-
-            if (userService.existsByEmail(signupRequest.getEmail())) {
-                log.warn("Registration failed: Email already in use for email: {}", signupRequest.getEmail());
-                throw new RuntimeException("Error: Email is already in use!");
-            }
-
-            // Create new user's account
-            User user = new User();
-            user.setUsername(signupRequest.getUsername());
-            user.setEmail(signupRequest.getEmail());
-            user.setPassword(encoder.encode(signupRequest.getPassword()));
-            user.setProfileImage(base64Image); // Set profile image
-
-            Set<String> strRoles = signupRequest.getRoles();
-            Set<Role> roles = new HashSet<>();
-
-            if (strRoles == null) {
-                log.info("No roles provided, assigning default role 'user' to: {}", signupRequest.getUsername());
-                Role userRole = roleService.findByName(ERole.ROLE_USER)
-                        .orElseThrow(() -> {
-                            log.error("Role 'user' not found during registration for: {}", signupRequest.getUsername());
-                            return new RuntimeException("Error: Role is not found.");
-                        });
-                roles.add(userRole);
-            } else {
-                strRoles.forEach(role -> {
-                    try {
-                        switch (role) {
-                            case "admin":
-                                log.info("Assigning 'admin' role to user: {}", signupRequest.getUsername());
-                                Role adminRole = roleService.findByName(ERole.ROLE_ADMIN)
-                                        .orElseThrow(() -> {
-                                            log.error("Role 'admin' not found during registration for: {}", signupRequest.getUsername());
-                                            return new RuntimeException("Error: Role is not found.");
-                                        });
-                                roles.add(adminRole);
-                                break;
-                            default:
-                                log.info("Assigning 'user' role to user: {}", signupRequest.getUsername());
-                                Role userRole = roleService.findByName(ERole.ROLE_USER)
-                                        .orElseThrow(() -> {
-                                            log.error("Role 'user' not found during registration for: {}", signupRequest.getUsername());
-                                            return new RuntimeException("Error: Role is not found.");
-                                        });
-                                roles.add(userRole);
-                        }
-                    } catch (Exception e) {
-                        log.error("Error assigning role '{}' to user: {}", role, signupRequest.getUsername(), e);
-                        throw new RuntimeException("Error assigning roles", e);
-                    }
-                });
-            }
-
-            user.setRoles(roles);
-
-            // Generate 2FA secret
-            try {
-                log.info("Generating 2FA secret for user: {}", signupRequest.getUsername());
-                String secret = gaService.generateKey();
-                user.setTwoFactorSecret(secret);
-                user.setTwoFactorEnabled(true);
-
-                log.info("Saving user data for user: {}", signupRequest.getUsername());
-                userService.save(user);
-
-                // Generate QR code
-                log.info("Generating QR code for user: {}", signupRequest.getUsername());
-                String qrCodeBase64 = gaService.generateQRUrl(secret, user.getUsername());
-
-                // Create response
-                TwoFactorSetupResponse setupResponse = new TwoFactorSetupResponse();
-                setupResponse.setSecret(secret);
-                setupResponse.setQrCodeBase64(qrCodeBase64);
-
-                SignupResponse response = new SignupResponse();
-                response.setMessage("User registered successfully!");
-                response.setTwoFactorSetup(setupResponse);
-
-                log.info("User registration successful for user: {}", signupRequest.getUsername());
-                return response;
-            } catch (Exception e) {
-                log.error("Error during 2FA setup for user: {}", signupRequest.getUsername(), e);
-                throw new RuntimeException("Error setting up 2FA during registration", e);
-            }
+            return setupTwoFactorAndSaveUser(user);
         } catch (DataAccessException e) {
             log.error("Database error during user registration: {}", signupRequest.getUsername(), e);
-            throw new RuntimeException("Database error during registration", e);
+            throw new ResourceNotFoundException("Database error during registration");
         } catch (RuntimeException e) {
             // Re-throw runtime exceptions that we've already created
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during user registration: {}", signupRequest.getUsername(), e);
-            throw new RuntimeException("Registration failed due to server error", e);
+            throw new JwtAuthenticationException("Registration failed due to server error", e);
         }
     }
+
+    private void validateUserInput(SignUpRequest signupRequest) {
+        validateUsername(signupRequest.getUsername());
+        validateEmail(signupRequest.getEmail());
+        validatePassword(signupRequest.getPassword(), signupRequest.getUsername());
+    }
+
+    private void validateUsername(String username) {
+        if (username == null || username.trim().length() < 3) {
+            log.warn("Registration failed: Username too short '{}'", username);
+            throw new ValidationException("Username must be at least 3 characters long");
+        }
+        if (!username.matches("^\\w+$")) {
+            log.warn("Registration failed: Username invalid '{}'", username);
+            throw new ValidationException("Username can only contain letters, numbers, and underscores");
+        }
+    }
+
+    private void validateEmail(String email) {
+        if (email == null || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            log.warn("Registration failed: Email invalid '{}'", email);
+            throw new ValidationException("Please enter a valid email address");
+        }
+    }
+
+    private void validatePassword(String password, String username) {
+        if (password == null || password.length() < 8) {
+            log.warn("Registration failed: Password too short for '{}'", username);
+            throw new ValidationException("Password must be at least 8 characters");
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            log.warn("Registration failed: Password missing uppercase for '{}'", username);
+            throw new ValidationException("Must contain one uppercase letter");
+        }
+        if (!password.matches(".*[a-z].*")) {
+            log.warn("Registration failed: Password missing lowercase for '{}'", username);
+            throw new ValidationException("Must contain one lowercase letter");
+        }
+        if (!password.matches(".*\\d.*")) {
+            log.warn("Registration failed: Password missing number for '{}'", username);
+            throw new ValidationException("Must contain one number");
+        }
+        if (!password.matches(".*[!@#$%^&*].*")) {
+            log.warn("Registration failed: Password missing special character for '{}'", username);
+            throw new ValidationException("Must contain one special character (!@#$%^&*)");
+        }
+    }
+
+    private void checkUserExistence(SignUpRequest signupRequest) {
+        boolean existsByUsername = userRepo.existsByUsername(signupRequest.getUsername());
+        boolean existsByEmail = userRepo.existsByEmail(signupRequest.getEmail());
+
+        if (existsByUsername) {
+            log.warn("Registration failed: Username already taken for username: {}", signupRequest.getUsername());
+            throw new ValidationException("Error: Username is already taken!");
+        }
+
+        if (existsByEmail) {
+            log.warn("Registration failed: Email already in use for email: {}", signupRequest.getEmail());
+            throw new ValidationException("Error: Email is already in use!");
+        }
+    }
+
+    private User createUserObject(SignUpRequest signupRequest, String base64Image) {
+        User user = new User();
+        user.setUsername(signupRequest.getUsername());
+        user.setEmail(signupRequest.getEmail());
+        user.setPassword(encoder.encode(signupRequest.getPassword()));
+        user.setProfileImage(base64Image); // Set profile image
+        return user;
+    }
+
+    private void assignUserRoles(User user, Set<String> strRoles) {
+        Set<Role> roles = new HashSet<>();
+
+        if (strRoles == null) {
+            log.info("No roles provided, assigning default role 'user' to: {}", user.getUsername());
+            Role userRole = findRoleByName(ERole.ROLE_USER, user.getUsername());
+            roles.add(userRole);
+        } else {
+            strRoles.forEach(role -> {
+                try {
+                    if ("admin".equals(role)) {
+                        log.info("Assigning 'admin' role to user: {}", user.getUsername());
+                        Role adminRole = findRoleByName(ERole.ROLE_ADMIN, user.getUsername());
+                        roles.add(adminRole);
+                    } else {
+                        log.info("Assigning 'user' role to user: {}", user.getUsername());
+                        Role userRole = findRoleByName(ERole.ROLE_USER, user.getUsername());
+                        roles.add(userRole);
+                    }
+                } catch (Exception e) {
+                    log.error("Error assigning role '{}' to user: {}", role, user.getUsername(), e);
+                    throw new ResourceNotFoundException("Error assigning roles");
+                }
+            });
+        }
+
+        user.setRoles(roles);
+    }
+
+    private Role findRoleByName(ERole roleName, String username) {
+        return roleService.findByName(roleName)
+                .orElseThrow(() -> {
+                    log.error("Role '{}' not found during registration for: {}", roleName.name(), username);
+                    return new ResourceNotFoundException("Error: Role is not found.");
+                });
+    }
+
+    private SignupResponse setupTwoFactorAndSaveUser(User user) {
+        try {
+            log.info("Generating 2FA secret for user: {}", user.getUsername());
+            String secret = gaService.generateKey();
+            user.setTwoFactorSecret(secret);
+            user.setTwoFactorEnabled(true);
+
+            log.info("Saving user data for user: {}", user.getUsername());
+            userService.save(user);
+
+            // Generate QR code
+            log.info("Generating QR code for user: {}", user.getUsername());
+            String qrCodeBase64 = gaService.generateQRUrl(secret, user.getUsername());
+
+            return createSignupResponse(secret, qrCodeBase64);
+        } catch (Exception e) {
+            log.error("Error during 2FA setup for user: {}", user.getUsername(), e);
+            throw new GoogleAuthenticatorException("Error setting up 2FA during registration", e);
+        }
+    }
+
+    private SignupResponse createSignupResponse(String secret, String qrCodeBase64) {
+        TwoFactorSetupResponse setupResponse = new TwoFactorSetupResponse();
+        setupResponse.setSecret(secret);
+        setupResponse.setQrCodeBase64(qrCodeBase64);
+
+        SignupResponse response = new SignupResponse();
+        response.setMessage("User registered successfully!");
+        response.setTwoFactorSetup(setupResponse);
+
+        return response;
+    }
+
 
     @Override
     public TwoFactorSetupResponse setup2FA(String username) {
@@ -407,14 +430,10 @@ public class AuthService implements AuthServiceInterface {
             log.info("2FA setup completed for user: {}", username);
             return response;
         } catch (UsernameNotFoundException e) {
-            // Re-throw the specific exception
             throw e;
-        } catch (DataAccessException e) {
-            log.error("Database error during 2FA setup for user: {}", username, e);
-            throw new RuntimeException("Database error during 2FA setup", e);
-        } catch (Exception e) {
+        }  catch (Exception e) {
             log.error("Unexpected error during 2FA setup for user: {}", username, e);
-            throw new RuntimeException("2FA setup failed due to server error", e);
+            throw new GoogleAuthenticatorException("2FA setup failed due to server error", e);
         }
     }
 
@@ -446,7 +465,7 @@ public class AuthService implements AuthServiceInterface {
 
             List<String> roles = user.getRoles().stream()
                     .map(role -> role.getName().name())
-                    .collect(Collectors.toList());
+                    .toList();
 
             JwtResponse response = new JwtResponse(
                     accessToken,
@@ -464,10 +483,10 @@ public class AuthService implements AuthServiceInterface {
             throw e;
         } catch (DataAccessException e) {
             log.error("Database error during 2FA verification for user: {}", verifyRequest.getUsername(), e);
-            throw new RuntimeException("Database error during 2FA verification", e);
+            throw new GoogleAuthenticatorException("Database error during 2FA verification", e);
         } catch (Exception e) {
             log.error("Unexpected error during 2FA verification for user: {}", verifyRequest.getUsername(), e);
-            throw new RuntimeException("2FA verification failed due to server error", e);
+            throw new GoogleAuthenticatorException("2FA verification failed due to server error", e);
         }
     }
 
@@ -477,23 +496,19 @@ public class AuthService implements AuthServiceInterface {
             // Validate refresh token
             if (!jwtUtils.validateJwtToken(refreshToken) || isTokenBlacklisted(refreshToken)) {
                 log.warn("Invalid refresh token");
-                throw new RuntimeException("Invalid refresh token");
+                throw new JwtAuthenticationException("Invalid refresh token");
             }
 
             String username = jwtUtils.getUserNameFromJwtToken(refreshToken);
             log.info("Extracted username {} from refresh token", username);
+
             // Generate new access token
             String newAccessToken = jwtUtils.generateJwtToken(username);
             // Generate new refresh token
             String newRefreshToken = jwtUtils.generateRefreshToken(username);
 
-            // Blacklist the old refresh token
-            try {
-                blacklistToken(refreshToken);
-            } catch (Exception e) {
-                log.warn("Failed to blacklist old refresh token", e);
-                // Continue despite blacklisting failure
-            }
+            // Attempt to blacklist the old token but continue if it fails
+            blacklistTokenSafely(refreshToken);
 
             TokenRefreshResponse response = new TokenRefreshResponse(newAccessToken, newRefreshToken, "Bearer");
             log.info("Successfully generated new access and refresh tokens");
@@ -503,22 +518,28 @@ public class AuthService implements AuthServiceInterface {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during token refresh", e);
-            throw new RuntimeException("Token refresh failed due to server error", e);
+            throw new JwtAuthenticationException("Token refresh failed due to server error", e);
         }
     }
+
+    private void blacklistTokenSafely(String token) {
+        try {
+            blacklistToken(token);
+        } catch (Exception e) {
+            log.warn("Failed to blacklist old refresh token", e);
+            // Continue despite blacklisting failure
+        }
+    }
+
 
     public void logout(String token) {
         log.info("Logging out user with token: {}", token);
         try {
             Date expiryDate = jwtUtils.getExpirationDateFromJwtToken(token);
             blacklistedTokenRegistryService.blacklistToken(token, expiryDate);
-            log.info("Token blacklisted successfully");
-        } catch (DataAccessException e) {
-            log.error("Database error during logout", e);
-            throw new RuntimeException("Database error during logout", e);
         } catch (Exception e) {
-            log.error("Unexpected error during logout", e);
-            throw new RuntimeException("Logout failed due to server error", e);
+            log.error("Database error during logout", e);
+            throw new ResourceNotFoundException("Database error during logout");
         }
     }
 
@@ -531,12 +552,9 @@ public class AuthService implements AuthServiceInterface {
             tokenRegistry.setExpiryDate(expiryDate);
             tokenRegistryRepository.save(tokenRegistry);
             log.info("Token blacklisted successfully");
-        } catch (DataAccessException e) {
-            log.error("Database error while blacklisting token", e);
-            throw new RuntimeException("Failed to blacklist token due to database error", e);
         } catch (Exception e) {
             log.error("Unexpected error while blacklisting token", e);
-            throw new RuntimeException("Failed to blacklist token", e);
+            throw new ResourceNotFoundException("Failed to blacklist token");
         }
     }
 
