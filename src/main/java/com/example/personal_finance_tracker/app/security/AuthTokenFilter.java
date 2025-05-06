@@ -31,53 +31,17 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        try {
-            // Enhanced logging to debug the issue
-            log.info("Processing request: {}", request.getRequestURI());
+        // Enhanced logging to debug the issue
+        log.info("Processing request: {}", request.getRequestURI());
 
+        try {
             String headerAuth = request.getHeader("Authorization");
             log.debug("Authorization header present: {}", StringUtils.hasText(headerAuth));
 
             String jwt = parseJwt(request);
-            
+
             if (jwt != null) {
-                try {
-                    boolean isValid = jwtUtil.validateJwtToken(jwt);
-                    log.debug("JWT validation result: {}", isValid);
-
-                    if (isValid) {
-                        String username = jwtUtil.getUserNameFromJwtToken(jwt);
-                        log.debug("Username extracted from token: {}", username);
-
-                        try {
-                            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                            
-                            UsernamePasswordAuthenticationToken authentication =
-                                    new UsernamePasswordAuthenticationToken(
-                                            userDetails,
-                                            null,
-                                            userDetails.getAuthorities());
-
-                            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                            SecurityContextHolder.getContext().setAuthentication(authentication);
-                            log.debug("Authentication set in SecurityContext for user: {}", username);
-                        } catch (UsernameNotFoundException e) {
-                            log.error("User not found with username: {}", username, e);
-                            // Don't set authentication for non-existent users
-                        } catch (LockedException e) {
-                            log.error("Account locked for user: {}", username, e);
-                            // Don't set authentication for locked accounts
-                        }
-                    }
-                } catch (MalformedJwtException e) {
-                    log.error("Invalid JWT token format: {}", e.getMessage());
-                } catch (ExpiredJwtException e) {
-                    log.warn("JWT token is expired: {}", e.getMessage());
-                } catch (UnsupportedJwtException e) {
-                    log.error("JWT token is unsupported: {}", e.getMessage());
-                } catch (IllegalArgumentException e) {
-                    log.error("JWT claims string is empty: {}", e.getMessage());
-                }
+                processJwtToken(jwt, request);
             }
         } catch (Exception e) {
             log.error("Cannot set user authentication: {}", e.getMessage(), e);
@@ -86,6 +50,51 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
+
+    private void processJwtToken(String jwt, HttpServletRequest request) {
+        try {
+            boolean isValid = jwtUtil.validateJwtToken(jwt);
+            log.debug("JWT validation result: {}", isValid);
+
+            if (isValid) {
+                String username = jwtUtil.getUserNameFromJwtToken(jwt);
+                log.debug("Username extracted from token: {}", username);
+
+                authenticateUser(username, request);
+            }
+        } catch (MalformedJwtException e) {
+            log.error("Invalid JWT token format: {}", e.getMessage());
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT token is expired: {}", e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            log.error("JWT token is unsupported: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.error("JWT claims string is empty: {}", e.getMessage());
+        }
+    }
+
+    private void authenticateUser(String username, HttpServletRequest request) {
+        try {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities());
+
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            log.debug("Authentication set in SecurityContext for user: {}", username);
+        } catch (UsernameNotFoundException e) {
+            log.error("User not found with username: {}", username, e);
+            // Don't set authentication for non-existent users
+        } catch (LockedException e) {
+            log.error("Account locked for user: {}", username, e);
+            // Don't set authentication for locked accounts
+        }
+    }
+
 
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");

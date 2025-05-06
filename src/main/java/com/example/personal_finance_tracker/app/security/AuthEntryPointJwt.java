@@ -18,6 +18,7 @@ import java.util.Map;
 public class AuthEntryPointJwt implements AuthenticationEntryPoint {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthEntryPointJwt.class);
+    private static final String MESSAGE = "message";
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
@@ -32,19 +33,19 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
         
         // Provide more specific error messages based on exception type
         if (authException instanceof com.example.personal_finance_tracker.app.exceptions.JwtAuthenticationException) {
-            body.put("message", "JWT authentication failed: " + authException.getMessage());
+            body.put(MESSAGE, "JWT authentication failed: " + authException.getMessage());
         } else if (authException instanceof org.springframework.security.authentication.BadCredentialsException) {
-            body.put("message", "Invalid username or password");
+            body.put(MESSAGE, "Invalid username or password");
         } else if (authException instanceof org.springframework.security.authentication.LockedException) {
-            body.put("message", "Account is locked. Please try again later");
+            body.put(MESSAGE, "Account is locked. Please try again later");
         } else if (authException instanceof org.springframework.security.authentication.DisabledException) {
-            body.put("message", "Account is disabled. Please contact support");
+            body.put(MESSAGE, "Account is disabled. Please contact support");
         } else if (authException instanceof org.springframework.security.authentication.AccountExpiredException) {
-            body.put("message", "Account has expired. Please contact support");
+            body.put(MESSAGE, "Account has expired. Please contact support");
         } else if (authException instanceof org.springframework.security.authentication.CredentialsExpiredException) {
-            body.put("message", "Credentials have expired. Please reset your password");
+            body.put(MESSAGE, "Credentials have expired. Please reset your password");
         } else {
-            body.put("message", authException.getMessage());
+            body.put(MESSAGE, authException.getMessage());
         }
         
         body.put("path", request.getServletPath());

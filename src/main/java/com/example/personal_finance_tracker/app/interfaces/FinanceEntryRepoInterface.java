@@ -1,6 +1,5 @@
 package com.example.personal_finance_tracker.app.interfaces;
 
-import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.example.personal_finance_tracker.app.models.FinanceEntry;
 
 import java.util.List;
