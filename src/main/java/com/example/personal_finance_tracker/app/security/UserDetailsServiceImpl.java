@@ -3,7 +3,6 @@ package com.example.personal_finance_tracker.app.security;
 import com.example.personal_finance_tracker.app.models.User;
 import com.example.personal_finance_tracker.app.services.UserService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -14,8 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
-    @Autowired
-    private UserService userService;
+
+    private final UserService userService;
+
+    public UserDetailsServiceImpl(UserService userService) {
+        this.userService = userService;
+    }
 
     @Override
     @Transactional

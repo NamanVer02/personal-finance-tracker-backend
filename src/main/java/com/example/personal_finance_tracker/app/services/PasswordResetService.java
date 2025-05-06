@@ -31,7 +31,7 @@ public class PasswordResetService {
             return true;
         } catch (DataAccessException e) {
             log.error("Error initiating password reset for username: {}", username, e);
-            throw new RuntimeException("Failed to initiate password reset", e);
+            throw new ResourceNotFoundException("Failed to initiate password reset");
         }
     }
 
@@ -63,7 +63,7 @@ public class PasswordResetService {
             return true;
         } catch (DataAccessException e) {
             log.error("Error resetting password for username: {}", resetPasswordRequest.getUsername(), e);
-            throw new RuntimeException("Failed to reset password", e);
+            throw new ResourceNotFoundException("Failed to reset password");
         }
     }
 }

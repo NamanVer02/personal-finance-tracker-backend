@@ -10,7 +10,6 @@ import com.example.personal_finance_tracker.app.repository.RoleRepo;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -23,7 +22,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,14 +30,19 @@ public class UserService implements UserInterface {
     @Value("${app.max_failed_attempts}")
     private int maxFailedAttempts;
 
-    @Autowired
-    private UserRepo userRepo;
+    private final UserRepo userRepo;
+    private final PasswordEncoder passwordEncoder;
+    private final RoleRepo roleRepo;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private static final String CACHE_MISS_MESSAGE = "Cache MISS for userById: {}";
+    private static final String USER_NOT_FOUND_MESSAGE = "User not found with id: ";
+    private static final String ROLE_NOT_FOUND_MESSAGE = "Role not found: ";
 
-    @Autowired
-    private RoleRepo roleRepo;
+    public UserService(UserRepo userRepo, PasswordEncoder passwordEncoder, RoleRepo roleRepo) {
+        this.userRepo = userRepo;
+        this.passwordEncoder = passwordEncoder;
+        this.roleRepo = roleRepo;
+    }
 
     @Override
     @Cacheable(value = "userByUsername", key = "#username", unless = "#result == null")
@@ -55,14 +58,14 @@ public class UserService implements UserInterface {
             return result;
         } catch (Exception e) {
             log.error("Error finding user by username: {}", username, e);
-            throw new RuntimeException("Failed to find user by username", e);
+            throw new ResourceNotFoundException("Failed to find user by username");
         }
     }
 
     @Override
     @Cacheable(value = "userById", key = "#id", unless = "#result == null")
     public Optional<User> findById(Long id) {
-        log.info("Cache MISS for userById: {}", id);
+        log.info(CACHE_MISS_MESSAGE, id);
         try {
             Optional<User> result = userRepo.findById(id);
             if (result.isPresent()) {
@@ -73,7 +76,7 @@ public class UserService implements UserInterface {
             return result;
         } catch (Exception e) {
             log.error("Error finding user by ID: {}", id, e);
-            throw new RuntimeException("Failed to find user by ID", e);
+            throw new ResourceNotFoundException("Failed to find user by ID");
         }
     }
 
@@ -84,7 +87,7 @@ public class UserService implements UserInterface {
             return userRepo.existsByUsername(username);
         } catch (Exception e) {
             log.error("Error checking if username exists: {}", username, e);
-            throw new RuntimeException("Failed to check username existence", e);
+            throw new ResourceNotFoundException("Failed to check username existence");
         }
     }
 
@@ -95,7 +98,7 @@ public class UserService implements UserInterface {
             return userRepo.existsByEmail(email);
         } catch (Exception e) {
             log.error("Error checking if email exists: {}", email, e);
-            throw new RuntimeException("Failed to check email existence", e);
+            throw new ResourceNotFoundException("Failed to check email existence");
         }
     }
 
@@ -114,7 +117,7 @@ public class UserService implements UserInterface {
             userRepo.save(user);
         } catch (Exception e) {
             log.error("Error saving user: {}", user.getUsername(), e);
-            throw new RuntimeException("Failed to save user", e);
+            throw new ResourceNotFoundException("Failed to save user");
         }
     }
 
@@ -128,7 +131,7 @@ public class UserService implements UserInterface {
             return users;
         } catch (Exception e) {
             log.error("Error retrieving all users", e);
-            throw new RuntimeException("Failed to retrieve all users", e);
+            throw new ResourceNotFoundException("Failed to retrieve all users");
         }
     }
 
@@ -143,7 +146,7 @@ public class UserService implements UserInterface {
             return username;
         } catch (Exception e) {
             log.error("Error getting username for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to get username by user ID", e);
+            throw new ResourceNotFoundException("Failed to get username by user ID");
         }
     }
 
@@ -158,7 +161,7 @@ public class UserService implements UserInterface {
             return userId;
         } catch (Exception e) {
             log.error("Error getting user ID for username: {}", username, e);
-            throw new RuntimeException("Failed to get user ID by username", e);
+            throw new ResourceNotFoundException("Failed to get user ID by username");
         }
     }
 
@@ -168,12 +171,12 @@ public class UserService implements UserInterface {
         try {
             Collection<? extends GrantedAuthority> authorities = user.getRoles().stream()
                     .map(role -> new SimpleGrantedAuthority(role.getName().name()))
-                    .collect(Collectors.toList());
+                    .toList();
             log.info("Retrieved {} authorities for user: {} from database", authorities.size(), user.getUsername());
             return authorities;
         } catch (Exception e) {
             log.error("Error retrieving authorities for user: {}", user.getUsername(), e);
-            throw new RuntimeException("Failed to get user authorities", e);
+            throw new ResourceNotFoundException("Failed to get user authorities");
         }
     }
 
@@ -190,7 +193,7 @@ public class UserService implements UserInterface {
             userRepo.updateFailedAttempts(newFailedAttempts, user.getUsername());
         } catch (Exception e) {
             log.error("Error incrementing failed attempts for user: {}", user.getUsername(), e);
-            throw new RuntimeException("Failed to increment failed attempts", e);
+            throw new ResourceNotFoundException("Failed to increment failed attempts");
         }
     }
 
@@ -202,7 +205,7 @@ public class UserService implements UserInterface {
             userRepo.updateFailedAttempts(0, username);
         } catch (Exception e) {
             log.error("Error resetting failed attempts for user: {}", username, e);
-            throw new RuntimeException("Failed to reset failed attempts", e);
+            throw new ResourceNotFoundException("Failed to reset failed attempts");
         }
     }
 
@@ -214,7 +217,7 @@ public class UserService implements UserInterface {
             userRepo.lockUser(LocalDateTime.now(), user.getUsername());
         } catch (Exception e) {
             log.error("Error locking user account: {}", user.getUsername(), e);
-            throw new RuntimeException("Failed to lock user account", e);
+            throw new ResourceNotFoundException("Failed to lock user account");
         }
     }
 
@@ -250,7 +253,7 @@ public class UserService implements UserInterface {
             return false;
         } catch (Exception e) {
             log.error("Error updating password for user ID: {}", id, e);
-            throw new RuntimeException("Failed to update password", e);
+            throw new ResourceNotFoundException("Failed to update password");
         }
     }
 
@@ -282,7 +285,7 @@ public class UserService implements UserInterface {
             return false;
         } catch (Exception e) {
             log.error("Error deleting user with ID: {}", id, e);
-            throw new RuntimeException("Failed to delete user", e);
+            throw new ResourceNotFoundException("Failed to delete user");
         }
     }
 
@@ -298,7 +301,7 @@ public class UserService implements UserInterface {
         log.info("Setting account expiration status to {} for user ID: {} and updating caches", expired, userId);
         try {
             User user = userRepo.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                    .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + userId));
 
             user.setAccountExpired(expired);
             userRepo.save(user);
@@ -308,9 +311,6 @@ public class UserService implements UserInterface {
         } catch (ResourceNotFoundException e) {
             log.error("User not found for setting expiration: {}", userId);
             throw e;
-        } catch (Exception e) {
-            log.error("Error setting account expiration for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to set account expiration", e);
         }
     }
 
@@ -335,7 +335,7 @@ public class UserService implements UserInterface {
             log.info("Deleted {} expired accounts", deletedCount);
         } catch (Exception e) {
             log.error("Error deleting expired accounts", e);
-            throw new RuntimeException("Failed to delete expired accounts", e);
+            throw new ResourceNotFoundException("Failed to delete expired accounts");
         }
     }
 
@@ -367,7 +367,7 @@ public class UserService implements UserInterface {
             return false;
         } catch (Exception e) {
             log.error("Error disabling 2FA for user ID: {}", id, e);
-            throw new RuntimeException("Failed to disable two-factor authentication", e);
+            throw new ResourceNotFoundException("Failed to disable two-factor authentication");
         }
     }
 
@@ -381,14 +381,14 @@ public class UserService implements UserInterface {
     public User assignRolesToUser(RoleAssignmentDto roleAssignmentDto) {
         log.info("Assigning roles to user ID: {} and updating caches", roleAssignmentDto.getUserId());
         User user = userRepo.findById(roleAssignmentDto.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + roleAssignmentDto.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + roleAssignmentDto.getUserId()));
 
         Set<Role> roles = new HashSet<>();
         for (String roleName : roleAssignmentDto.getRoleNames()) {
             try {
                 ERole eRole = ERole.valueOf(roleName.toUpperCase());
                 Role role = roleRepo.findByName(eRole)
-                        .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+                        .orElseThrow(() -> new ResourceNotFoundException(ROLE_NOT_FOUND_MESSAGE + roleName));
                 roles.add(role);
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Invalid role name: " + roleName);
@@ -409,12 +409,12 @@ public class UserService implements UserInterface {
     public User addRoleToUser(Long userId, String roleName) {
         log.info("Adding role {} to user ID: {} and updating caches", roleName, userId);
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + userId));
 
         try {
             ERole eRole = ERole.valueOf(roleName.toUpperCase());
             Role role = roleRepo.findByName(eRole)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+                    .orElseThrow(() -> new ResourceNotFoundException(ROLE_NOT_FOUND_MESSAGE + roleName));
 
             user.getRoles().add(role);
             return userRepo.save(user);
@@ -433,12 +433,10 @@ public class UserService implements UserInterface {
     public User removeRoleFromUser(Long userId, String roleName) {
         log.info("Removing role {} from user ID: {} and updating caches", roleName, userId);
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + userId));
 
         try {
             ERole eRole = ERole.valueOf(roleName.toUpperCase());
-            Role role = roleRepo.findByName(eRole)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
 
             user.getRoles().removeIf(r -> r.getName() == eRole);
             return userRepo.save(user);
@@ -449,10 +447,10 @@ public class UserService implements UserInterface {
 
     @Cacheable(value = "userById", key = "#id", unless = "#result == null")
     public User getUserById(Long id) {
-        log.info("Cache MISS for userById: {}", id);
+        log.info(CACHE_MISS_MESSAGE, id);
         try {
             User user = userRepo.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + id));
             log.info("Retrieved user by ID: {} from database", id);
             return user;
         } catch (ResourceNotFoundException e) {
@@ -460,7 +458,7 @@ public class UserService implements UserInterface {
             throw e;
         } catch (Exception e) {
             log.error("Error getting user by ID: {}", id, e);
-            throw new RuntimeException("Failed to get user by ID", e);
+            throw new ResourceNotFoundException("Failed to get user by ID");
         }
     }
 
@@ -480,7 +478,7 @@ public class UserService implements UserInterface {
             log.info("Successfully updated profile image for user ID: {}", userId);
         } catch (Exception e) {
             log.error("Error updating profile image for user ID: {}", userId, e);
-            throw new RuntimeException("Failed to update profile image", e);
+            throw new ResourceNotFoundException("Failed to update profile image");
         }
     }
 
@@ -488,13 +486,13 @@ public class UserService implements UserInterface {
     @Cacheable(value = "userById", key = "#id", unless = "#result == null")
     public User getUserByIdWithLogging(Long id) {
         // This code block only executes on cache miss
-        log.info("Cache MISS for userById: {}", id);
+        log.info(CACHE_MISS_MESSAGE, id);
         try {
             return userRepo.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + id));
         } catch (Exception e) {
             log.error("Error getting user by ID: {}", id, e);
-            throw new RuntimeException("Failed to get user by ID", e);
+            throw new ResourceNotFoundException("Failed to get user by ID");
         }
     }
 }

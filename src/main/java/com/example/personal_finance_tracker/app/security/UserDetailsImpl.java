@@ -56,6 +56,12 @@ public class UserDetailsImpl implements UserDetails {
         return Objects.equals(id, user.id);
     }
 
+    @Override
+    public int hashCode() {
+        log.trace("Generating hashCode for UserDetailsImpl object");
+        return Objects.hash(id);
+    }
+
     // Required UserDetails method implementations with logging (if needed)
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

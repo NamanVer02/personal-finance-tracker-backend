@@ -8,6 +8,9 @@ class PersonalFinanceTrackerApplicationTests {
 
 	@Test
 	void contextLoads() {
+		/*
+
+		 */
 	}
 
 }

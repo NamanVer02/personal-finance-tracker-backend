@@ -5,9 +5,7 @@ import com.example.personal_finance_tracker.app.models.dto.*;
 import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.services.FinanceEntryService;
 import com.example.personal_finance_tracker.app.services.UserService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,14 +17,17 @@ import java.util.Base64;
 @Slf4j
 @RestController
 @RequestMapping("/api/users")
-@RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
     private final UserRepo userRepo;
+    private final FinanceEntryService financeEntryService;
 
-    @Autowired
-    private FinanceEntryService financeEntryService;
+    public UserController(UserService userService, UserRepo userRepo, FinanceEntryService financeEntryService) {
+        this.userService = userService;
+        this.userRepo = userRepo;
+        this.financeEntryService = financeEntryService;
+    }
 
     @PutMapping("/{id}/details")
     public ResponseEntity<UserDetailsResponse> getUserDetails(@PathVariable Long id) {

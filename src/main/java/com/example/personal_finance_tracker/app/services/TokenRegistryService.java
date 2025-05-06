@@ -1,9 +1,9 @@
 package com.example.personal_finance_tracker.app.services;
 
+import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.example.personal_finance_tracker.app.models.TokenRegistry;
 import com.example.personal_finance_tracker.app.repository.TokenRegistryRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -14,8 +14,12 @@ import java.util.List;
 @Slf4j
 @Service
 public class TokenRegistryService {
-    @Autowired
-    private TokenRegistryRepository tokenRegistryRepository;
+
+    private final TokenRegistryRepository tokenRegistryRepository;
+
+    public TokenRegistryService(TokenRegistryRepository tokenRegistryRepository) {
+        this.tokenRegistryRepository = tokenRegistryRepository;
+    }
 
     public void blacklistToken(String token, Date expiryDate) {
         log.info("Blacklisting token: {}", token);
@@ -26,10 +30,10 @@ public class TokenRegistryService {
             tokenRegistryRepository.save(tokenRegistry);
         } catch (DataAccessException e) {
             log.error("Error blacklisting token", e);
-            throw new RuntimeException("Failed to blacklist token", e);
+            throw new ResourceNotFoundException("Failed to blacklist token");
         } catch (NullPointerException e) {
             log.error("Token not found for blacklisting", e);
-            throw new RuntimeException("Token not found for blacklisting", e);
+            throw new NullPointerException("Token not found for blacklisting");
         }
     }
 
@@ -40,7 +44,7 @@ public class TokenRegistryService {
             return !tokenRegistry.isActive();
         } catch (DataAccessException e) {
             log.error("Error checking if token is blacklisted", e);
-            throw new RuntimeException("Failed to check if token is blacklisted", e);
+            throw new ResourceNotFoundException("Failed to check if token is blacklisted");
         } catch (NullPointerException e) {
             log.error("Token not found when checking blacklist status", e);
             return false;
@@ -64,7 +68,7 @@ public class TokenRegistryService {
             tokenRegistryRepository.save(tokenRegistry);
         } catch (DataAccessException e) {
             log.error("Error saving token registry for username: {}", tokenRegistry.getUsername(), e);
-            throw new RuntimeException("Failed to save token registry", e);
+            throw new ResourceNotFoundException("Failed to save token registry");
         }
     }
 
@@ -78,7 +82,7 @@ public class TokenRegistryService {
             }
         } catch (DataAccessException e) {
             log.error("Error invalidating previous tokens for username: {}", username, e);
-            throw new RuntimeException("Failed to invalidate previous tokens", e);
+            throw new ResourceNotFoundException("Failed to invalidate previous tokens");
         }
     }
 }

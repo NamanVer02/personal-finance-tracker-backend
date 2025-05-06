@@ -22,6 +22,10 @@ public class LogCollector {
     private static final Map<String, List<Double>> hitRates = new HashMap<>();
     private static final int MAX_HISTORY_SIZE = 30;
 
+    private LogCollector() {
+        // Prevents instantiation
+    }
+
     public static void addLog(String logMessage) {
         // Skip HikariCP internal logs
         if (shouldSkipLog(logMessage)) {

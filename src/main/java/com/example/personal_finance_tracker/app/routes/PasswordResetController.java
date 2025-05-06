@@ -20,25 +20,27 @@ import java.util.Map;
 public class PasswordResetController {
     private final PasswordResetService passwordResetService;
 
+    private static final String MESSAGE = "message";
+
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody CheckResetPassword checkResetPassword) {
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody CheckResetPassword checkResetPassword) {
         log.info("Password reset request received");
         boolean initiated = passwordResetService.initiatePasswordReset(checkResetPassword.getUsername());
         log.debug("Initiation status: {}", initiated);
-        return ResponseEntity.ok(Map.of("message", "If your username is registered, you will receive instructions"));
+        return ResponseEntity.ok(Map.of(MESSAGE, "If your username is registered, you will receive instructions"));
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest) {
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest) {
         log.info("Password reset attempt received");
         boolean reset = passwordResetService.resetPassword(resetPasswordRequest);
 
         if (reset) {
             log.info("Password reset successful");
-            return ResponseEntity.ok(Map.of("message", "Password reset successful"));
+            return ResponseEntity.ok(Map.of(MESSAGE, "Password reset successful"));
         } else {
             log.warn("Password reset failed");
-            return ResponseEntity.badRequest().body(Map.of("message", "Invalid request or 2FA code"));
+            return ResponseEntity.badRequest().body(Map.of(MESSAGE, "Invalid request or 2FA code"));
         }
     }
 }
