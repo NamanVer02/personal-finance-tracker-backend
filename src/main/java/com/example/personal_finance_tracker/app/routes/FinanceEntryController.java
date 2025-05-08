@@ -213,7 +213,7 @@ public class FinanceEntryController {
         return users;
     }
 
-    @GetMapping("/search")
+    @PostMapping("/search")
     public ResponseEntity<Page<FinanceEntry>> searchFinanceEntries(
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String category,
