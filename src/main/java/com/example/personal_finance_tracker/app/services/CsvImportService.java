@@ -37,7 +37,7 @@ public class CsvImportService {
     private static final int BATCH_SIZE = 1000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final String[] REQUIRED_HEADERS = {
-            "ID", "Label", "Amount", "Type", "Category", "Date", "Username"
+            "ID", "Label", "Amount", "Type", "Category", "Date"
     };
 
     @Transactional

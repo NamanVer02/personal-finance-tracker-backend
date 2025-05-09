@@ -3,6 +3,7 @@ package com.example.personal_finance_tracker.app.services;
 import com.example.personal_finance_tracker.app.exceptions.JwtAuthenticationException;
 import com.example.personal_finance_tracker.app.exceptions.ResourceNotFoundException;
 import com.example.personal_finance_tracker.app.exceptions.ValidationException;
+import com.example.personal_finance_tracker.app.exceptions.RateLimitExceededException;
 import com.example.personal_finance_tracker.app.interfaces.AuthServiceInterface;
 import com.example.personal_finance_tracker.app.models.ERole;
 import com.example.personal_finance_tracker.app.models.Role;
@@ -14,6 +15,7 @@ import com.example.personal_finance_tracker.app.repository.UserRepo;
 import com.example.personal_finance_tracker.app.security.JwtUtil;
 import com.example.personal_finance_tracker.app.security.UserDetailsImpl;
 import com.warrenstrange.googleauth.GoogleAuthenticatorException;
+import jakarta.mail.MessagingException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.*;
@@ -43,8 +45,9 @@ public class AuthService implements AuthServiceInterface {
     private final TokenRegistryRepository tokenRegistryRepository;
     private final TokenRegistryService blacklistedTokenRegistryService;
     private final TokenRegistryService tokenRegistryService;
+    private final EmailService emailService;
 
-    public AuthService(AuthenticationManager authenticationManager, UserService userService, RoleService roleService, PasswordEncoder encoder, JwtUtil jwtUtils, UserRepo userRepo, GAService gaService, TokenRegistryRepository tokenRegistryRepository, TokenRegistryService blacklistedTokenRegistryService, TokenRegistryService tokenRegistryService) {
+    public AuthService(AuthenticationManager authenticationManager, UserService userService, RoleService roleService, PasswordEncoder encoder, JwtUtil jwtUtils, UserRepo userRepo, GAService gaService, TokenRegistryRepository tokenRegistryRepository, TokenRegistryService blacklistedTokenRegistryService, TokenRegistryService tokenRegistryService, EmailService emailService) {
         this.authenticationManager = authenticationManager;
         this.userService = userService;
         this.roleService = roleService;
@@ -55,6 +58,7 @@ public class AuthService implements AuthServiceInterface {
         this.tokenRegistryRepository = tokenRegistryRepository;
         this.blacklistedTokenRegistryService = blacklistedTokenRegistryService;
         this.tokenRegistryService = tokenRegistryService;
+        this.emailService = emailService;
     }
 
     @Override
@@ -379,6 +383,15 @@ public class AuthService implements AuthServiceInterface {
             // Generate QR code
             log.info("Generating QR code for user: {}", user.getUsername());
             String qrCodeBase64 = gaService.generateQRUrl(secret, user.getUsername());
+            
+            // Send 2FA setup email
+            try {
+                log.info("Sending 2FA setup email to user: {}", user.getUsername());
+                emailService.send2FASetupEmail(user.getEmail(), user.getUsername(), secret, qrCodeBase64);
+            } catch (Exception e) {
+                // Log but don't rethrow any email-related exceptions
+                log.warn("Email sending failed, but continuing with registration: {}", e.getMessage());
+            }
 
             return createSignupResponse(secret, qrCodeBase64);
         } catch (Exception e) {
