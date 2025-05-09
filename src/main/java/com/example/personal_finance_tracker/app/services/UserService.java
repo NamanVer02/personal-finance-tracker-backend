@@ -19,6 +19,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -298,45 +299,7 @@ public class UserService implements UserInterface {
             @CacheEvict(value = "allUsers", allEntries = true)
     })
     public User setAccountExpiration(Long userId, boolean expired) {
-        log.info("Setting account expiration status to {} for user ID: {} and updating caches", expired, userId);
-        try {
-            User user = userRepo.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + userId));
-
-            user.setAccountExpired(expired);
-            userRepo.save(user);
-
-            log.info("Successfully set account expiration for user: {}", user.getUsername());
-            return user;
-        } catch (ResourceNotFoundException e) {
-            log.error("User not found for setting expiration: {}", userId);
-            throw e;
-        }
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = {"userById", "userByUsername", "allUsers", "usernameById", "userIdByUsername", "userAuthorities"}, allEntries = true)
-    public void deleteExpiredAccounts() {
-        log.info("Checking for expired accounts to delete and evicting all caches");
-        try {
-            List<User> users = userRepo.findAll();
-            int deletedCount = 0;
-
-            for (User user : users) {
-                if (user.isAccountExpired() && user.getExpirationDate() != null
-                        && LocalDateTime.now().isAfter(user.getExpirationDate())) {
-                    log.info("Deleting expired account: {}", user.getUsername());
-                    userRepo.delete(user);
-                    deletedCount++;
-                }
-            }
-
-            log.info("Deleted {} expired accounts", deletedCount);
-        } catch (Exception e) {
-            log.error("Error deleting expired accounts", e);
-            throw new ResourceNotFoundException("Failed to delete expired accounts");
-        }
+        return setAccountExpiration(userId, expired, null);
     }
 
     @Override
@@ -383,6 +346,14 @@ public class UserService implements UserInterface {
         User user = userRepo.findById(roleAssignmentDto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + roleAssignmentDto.getUserId()));
 
+        // Handle optimistic locking by manually setting the version if provided
+        if (roleAssignmentDto.getVersion() != null) {
+            // This will throw ObjectOptimisticLockingFailureException if versions don't match when saving
+            if (!user.getVersion().equals(roleAssignmentDto.getVersion())) {
+                throw new org.springframework.orm.ObjectOptimisticLockingFailureException(User.class, user.getId());
+            }
+        }
+
         Set<Role> roles = new HashSet<>();
         for (String roleName : roleAssignmentDto.getRoleNames()) {
             try {
@@ -407,9 +378,19 @@ public class UserService implements UserInterface {
             @CacheEvict(value = "userAuthorities", allEntries = true)
     })
     public User addRoleToUser(Long userId, String roleName) {
-        log.info("Adding role {} to user ID: {} and updating caches", roleName, userId);
+        return addRoleToUser(userId, roleName, null);
+    }
+    
+    @Transactional
+    public User addRoleToUser(Long userId, String roleName, Long version) {
+        log.info("Adding role {} to user ID: {} with version checking: {}", roleName, userId, version != null);
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + userId));
+
+        // Handle optimistic locking if version is provided
+        if (version != null && !user.getVersion().equals(version)) {
+            throw new ObjectOptimisticLockingFailureException(User.class, user.getId());
+        }
 
         try {
             ERole eRole = ERole.valueOf(roleName.toUpperCase());
@@ -431,9 +412,19 @@ public class UserService implements UserInterface {
             @CacheEvict(value = "userAuthorities", allEntries = true)
     })
     public User removeRoleFromUser(Long userId, String roleName) {
-        log.info("Removing role {} from user ID: {} and updating caches", roleName, userId);
+        return removeRoleFromUser(userId, roleName, null);
+    }
+    
+    @Transactional
+    public User removeRoleFromUser(Long userId, String roleName, Long version) {
+        log.info("Removing role {} from user ID: {} with version checking: {}", roleName, userId, version != null);
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_MESSAGE + userId));
+
+        // Handle optimistic locking if version is provided
+        if (version != null && !user.getVersion().equals(version)) {
+            throw new ObjectOptimisticLockingFailureException(User.class, user.getId());
+        }
 
         try {
             ERole eRole = ERole.valueOf(roleName.toUpperCase());
@@ -442,6 +433,46 @@ public class UserService implements UserInterface {
             return userRepo.save(user);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid role name: " + roleName);
+        }
+    }
+    
+    @Transactional
+    public User setAccountExpiration(Long userId, boolean expired, Long version) {
+        log.info("Setting account expiration to {} for user ID: {} with version checking: {}", 
+                expired, userId, version != null);
+        User user = getUserById(userId);
+        
+        // Handle optimistic locking if version is provided
+        if (version != null && !user.getVersion().equals(version)) {
+            throw new ObjectOptimisticLockingFailureException(User.class, user.getId());
+        }
+        
+        user.setAccountExpired(expired);
+        return userRepo.save(user);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = {"userById", "userByUsername", "allUsers", "usernameById", "userIdByUsername", "userAuthorities"}, allEntries = true)
+    public void deleteExpiredAccounts() {
+        log.info("Checking for expired accounts to delete and evicting all caches");
+        try {
+            List<User> users = userRepo.findAll();
+            int deletedCount = 0;
+
+            for (User user : users) {
+                if (user.isAccountExpired() && user.getExpirationDate() != null
+                        && LocalDateTime.now().isAfter(user.getExpirationDate())) {
+                    log.info("Deleting expired account: {}", user.getUsername());
+                    userRepo.delete(user);
+                    deletedCount++;
+                }
+            }
+
+            log.info("Deleted {} expired accounts", deletedCount);
+        } catch (Exception e) {
+            log.error("Error deleting expired accounts", e);
+            throw new ResourceNotFoundException("Failed to delete expired accounts");
         }
     }
 

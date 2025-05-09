@@ -12,4 +12,5 @@ import java.util.Set;
 public class RoleAssignmentDto {
     private Long userId;
     private Set<String> roleNames;
+    private Long version;
 }
