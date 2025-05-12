@@ -20,7 +20,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,7 +40,7 @@ public class CsvImportService {
     private static final int BATCH_SIZE = 1000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final String[] REQUIRED_HEADERS = {
-            "ID", "Label", "Amount", "Type", "Category", "Date"
+            "ID", "Label", "Amount", "Type", "Category", "Date", "Username"
     };
 
     @Transactional
@@ -57,7 +60,10 @@ public class CsvImportService {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-            CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT);
+            CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT
+                    .withFirstRecordAsHeader()
+                    .withIgnoreHeaderCase(true)
+                    .withTrim());
 
             validateCsvHeaders(csvParser);
 
@@ -88,13 +94,47 @@ public class CsvImportService {
     private FinanceEntry parseRecord(CSVRecord csvRecord, User user) {
         log.debug("Parsing record {}", csvRecord.getRecordNumber());
         FinanceEntry entry = new FinanceEntry();
-        entry.setLabel(csvRecord.get("Label"));
-        entry.setType(csvRecord.get("Type"));
-        entry.setAmount(parseDoubleSafe(csvRecord.get("Amount")));
-        entry.setCategory(csvRecord.get("Category"));
-        entry.setDate(parseDateSafe(csvRecord.get("Date")));
-        entry.setUser(user);
-        return entry;
+        
+        // Use case insensitive lookup
+        try {
+            // We won't use the ID from the CSV as that's for display only
+            entry.setLabel(getValueCaseInsensitive(csvRecord, "Label"));
+            entry.setType(getValueCaseInsensitive(csvRecord, "Type"));
+            entry.setAmount(parseDoubleSafe(getValueCaseInsensitive(csvRecord, "Amount")));
+            entry.setCategory(getValueCaseInsensitive(csvRecord, "Category"));
+            entry.setDate(parseDateSafe(getValueCaseInsensitive(csvRecord, "Date")));
+            entry.setUser(user);
+            
+            log.info("Successfully parsed record: label={}, type={}, amount={}, category={}, date={}",
+                     entry.getLabel(), entry.getType(), entry.getAmount(), entry.getCategory(), entry.getDate());
+                     
+            return entry;
+        } catch (Exception e) {
+            log.error("Error parsing CSV record: {}", e.getMessage());
+            throw new IllegalArgumentException("Error parsing CSV record: " + e.getMessage());
+        }
+    }
+    
+    private String getValueCaseInsensitive(CSVRecord record, String header) {
+        String value = null;
+        // Try exact match first
+        if (record.isMapped(header)) {
+            value = record.get(header);
+        } else {
+            // Try case-insensitive match
+            for (String recordHeader : record.getParser().getHeaderMap().keySet()) {
+                if (recordHeader.equalsIgnoreCase(header)) {
+                    value = record.get(recordHeader);
+                    break;
+                }
+            }
+        }
+        
+        if (value == null) {
+            throw new IllegalArgumentException("Could not find column: " + header);
+        }
+        
+        return value;
     }
 
     private double parseDoubleSafe(String value) {
@@ -116,29 +156,52 @@ public class CsvImportService {
     }
 
     private void validateFile(MultipartFile file) {
-        log.info("Validating uploaded file");
-        if (!"text/csv".equals(file.getContentType())) {
-            log.error("Invalid file type: {}", file.getContentType());
-            throw new IllegalArgumentException("Only CSV files are allowed");
+        log.info("Validating uploaded file with content type: {}", file.getContentType());
+        
+        // More lenient content type checking
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.equals("text/csv") && 
+            !contentType.equals("application/csv") && 
+            !contentType.equals("application/vnd.ms-excel") &&
+            !contentType.contains("csv") &&
+            !contentType.equals("application/octet-stream")) {
+            
+            log.error("Invalid file type: {}", contentType);
+            throw new IllegalArgumentException("Only CSV files are allowed. Current content type: " + contentType);
+        }
+
+        // Check file extension as a backup validation
+        String fileName = file.getOriginalFilename();
+        if (fileName != null && !fileName.toLowerCase().endsWith(".csv")) {
+            log.error("Invalid file extension: {}", fileName);
+            throw new IllegalArgumentException("File must have .csv extension");
         }
 
         if (file.getSize() > 100 * 1024 * 1024) {
             log.error("File size exceeded: {} bytes", file.getSize());
             throw new IllegalArgumentException("File size exceeds 100MB limit");
         }
+        
+        log.info("File validation passed for {}", file.getOriginalFilename());
     }
 
     private void validateCsvHeaders(CSVParser csvParser) {
-        List<String> actualHeaders = csvParser.getHeaderNames();
-        if (actualHeaders.size() != REQUIRED_HEADERS.length) {
+        log.info("Validating CSV headers: {}", csvParser.getHeaderMap().keySet());
+        
+        Set<String> actualHeadersLowerCase = csvParser.getHeaderMap().keySet().stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+                
+        List<String> missingHeaders = Arrays.stream(REQUIRED_HEADERS)
+                .map(String::toLowerCase)
+                .filter(header -> !actualHeadersLowerCase.contains(header))
+                .collect(Collectors.toList());
+                
+        if (!missingHeaders.isEmpty()) {
+            log.error("Missing required headers: {}", missingHeaders);
             throw new IllegalArgumentException("CSV header does not match the required format. " +
-                    "Expected headers: " + String.join(",", REQUIRED_HEADERS));
-        }
-        for (int i = 0; i < REQUIRED_HEADERS.length; i++) {
-            if (!REQUIRED_HEADERS[i].equalsIgnoreCase(actualHeaders.get(i))) {
-                throw new IllegalArgumentException("CSV header does not match the required format. " +
-                        "Expected headers: " + String.join(",", REQUIRED_HEADERS));
-            }
+                    "Expected headers: " + String.join(",", REQUIRED_HEADERS) + 
+                    ". Missing: " + String.join(",", missingHeaders));
         }
     }
 }
